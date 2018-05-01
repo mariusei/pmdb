@@ -293,18 +293,21 @@ PyObject* insert(PyObject *self, PyObject *args) {
   char* path_in, status_in;
   int64_t n_max;
   // Will be inserted in DB:
-  int64_t jobid;
-  char* job;
-  int64_t jobstage;
-  char* jobpath;
-  char* jobdatecommitted;
+  //int64_t jobid;
+  //char* job;
+  //int64_t jobstage;
+  //char* jobpath;
+  //char* jobdatecommitted;
+  
+  // Accessing the elements of the Python lists instead
+  PyObject *jobid, *job, *jobstage, *jobpath, *jobdatecommitted;
 
   char* status_out;
   PyObject *status_out_py;
 
   std::cout << "\t Initialized " << std::endl;
 
-  if (!PyArg_ParseTuple(args, "ssllSlss", 
+  if (!PyArg_ParseTuple(args, "sslOOOOO", 
                          &path_in,
                          &status_in,
                          &n_max,
@@ -351,15 +354,18 @@ PyObject* insert(PyObject *self, PyObject *args) {
   // reset q
   q = pop.get_root();
 
+  // Insert all at once
   if (n_objects_found < n_max) {
     // All is set, push to list
-    q->push(pop, 
-            jobid,
-            job,
-            jobstage,
-            jobpath,
-            jobdatecommitted
-        );
+    for (int i = 0; i < n_max; i++) {
+      q->push(pop, 
+              PyLong_AsLong(PyList_GetItem(jobid, i)),
+              PyBytes_AsString(PyList_GetItem(job, i)),
+              PyLong_AsLong(PyList_GetItem(jobstage, i)),
+              PyBytes_AsString(PyList_GetItem(jobpath, i)),
+              PyBytes_AsString(PyList_GetItem(jobdatecommitted, i))
+          );
+    }
     status_out = "STATUS_INSERTED";
   } else {
     status_out = "STATUS_FAILED_TOO_MANY";
