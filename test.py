@@ -1,7 +1,8 @@
 #!/usr/bin/python3.6
 
 import pmdb
-import pickle
+#import pickle
+import json
 
 
 fout = 'tst3.pmem'
@@ -20,7 +21,8 @@ print("Finished with exit code: ", status1)
 # Try generating some data
 
 jids = [i for i in range(n_el)]
-jobs = [pickle.dumps([i,3*i**2]) for i in range(n_el)]
+#jobs = [pickle.dumps([i,3*i**2]) for i in range(n_el)]
+jobs = [json.dumps([i,3*i**2]).encode('utf8') for i in range(n_el)]
 jobstages = [i//3 for i in range(n_el)]
 jobpaths = ['out/test/files.npy'.encode('utf8') for i in range(n_el)]
 jobdatecommitteds = ['2018-04-10 12:30:20'.encode('utf8') for i in range(n_el)]
@@ -47,11 +49,15 @@ print("######## TESTING GET #######")
 ix = 24
 
 out = pmdb.get(fout, 'OK', n_el, ix)
-print("Converted job to: ", pickle.loads(out[1]))
+print(out, 'vs in job', jobs[ix])
+print("Converted job to: ", json.loads(out[1]))
 out = pmdb.get(fout, 'OK', n_el, 12)
-print("Converted job to: ", pickle.loads(out[1]))
+print(out, 'vs in job', jobs[12])
+print("Converted job to: ", json.loads(out[1]))
 out = pmdb.get(fout, 'OK', n_el, 36)
-print("Converted job to: ", pickle.loads(out[1]))
+print(out, 'vs in job', jobs[36])
+print("Converted job to: ", json.loads(out[1]))
 out = pmdb.get(fout, 'OK', n_el, ix)
-print("Converted job to: ", pickle.loads(out[1]))
+print(out, 'vs in job', jobs[ix])
+print("Converted job to: ", json.loads(out[1]))
 

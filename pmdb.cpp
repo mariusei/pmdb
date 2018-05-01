@@ -25,23 +25,24 @@ using pmem::obj::make_persistent;
 using pmem::obj::delete_persistent;
 using pmem::obj::transaction;
 
-#define MAX_JOB_SIZE
+#define MAX_JOB_SIZE 256
 
 typedef struct {
   int64_t jobid;
   char job[MAX_JOB_SIZE];
   int64_t jobstage;
-  char* savepath;
-  char* datecommitted;
+  char savepath[MAX_JOB_SIZE];
+  char datecommitted[MAX_JOB_SIZE];
 } entry_shared;
 
 template <typename T, typename U>
 inline bool pstrcpy(T strout, U strin) {
   uint64_t j;
-  //for (j=0; strin[j] != '\0'; j++) {
-  for (j=0; j<MAX_JOB_SIZE; j++) {
+  for (j=0; strin[j] != '\0'; j++) {
+  //for (j=0; j<MAX_JOB_SIZE; j++) {
     strout[j] = strin[j];
   }
+  strout[j] = '\0';
   return true;
 }
 
@@ -53,8 +54,8 @@ class pmem_queue {
     p<int64_t> jobid;
     p<char> job[MAX_JOB_SIZE];
     p<int64_t> jobstage;
-    p<char*> savepath;
-    p<char*> datecommitted;
+    p<char> savepath[MAX_JOB_SIZE];
+    p<char> datecommitted[MAX_JOB_SIZE];
   };
 
 
@@ -64,22 +65,18 @@ public:
       int64_t jobid,
       char job[MAX_JOB_SIZE],
       int64_t jobstage,
-      char* savepath,
-      char* datecommitted
+      char savepath[MAX_JOB_SIZE],
+      char datecommitted[MAX_JOB_SIZE]
       ) {
     uint64_t j;
     transaction::exec_tx(pop, [&] {
         auto n = make_persistent<pmem_entry>();
 
         n->jobid = jobid;
-        //n->job = job;
         pstrcpy(n->job, job);
-        //for (j=0; job[j] != '\0'; j++) {
-        //  n->job[j] = job[j];
-        //}
         n->jobstage = jobstage;
-        n->savepath = savepath;
-        n->datecommitted = datecommitted;
+        pstrcpy(n->savepath, savepath);
+        pstrcpy(n->datecommitted, datecommitted);
         n->next = NULL;
 
         std::cout << "\t\t pushed: " << n->jobid << " with job " << n->job << " and " << n->jobstage << " " << n->savepath << " " << n->datecommitted << std::endl;
@@ -107,19 +104,12 @@ public:
       if (i == ix) { 
         // returns:
         out.jobid = n->jobid;
-        //strcpy(out.job, n->job);
         pstrcpy(out.job, n->job);
-        //for (j=0; n->job[j] != '\0'; j++) {
-        //  out.job[j] = n->job[j];
-        //}
         out.jobstage = n->jobstage;
-        out.savepath ="\0"; // n->savepath;
-        out.datecommitted ="\0"; // n->datecommitted;
+        pstrcpy(out.savepath, n->savepath);
+        pstrcpy(out.datecommitted, n->datecommitted);
         
-        //std::cout << "GOT in get: "<< out.jobid << " and job (ext) " << n->job << std::endl;
-        //std::cout << "GOT in get: "<< out.jobid << " and job (int) " << n->job << std::endl;
         std::cout << "GOT in get: "<< out.jobid << " and jobstage " << n->jobstage << " and job " << out.job << std::endl;
-        //std::cout << "GOT in get: "<< out.jobid << " and job (ext) " << n->job << " vs intern " << out.job << std::endl;
 
         return out;
       }
@@ -131,8 +121,8 @@ public:
       int64_t jobid,
       char job[MAX_JOB_SIZE]=NULL,
       int64_t jobstage=NULL,
-      char* savepath=NULL,
-      char* datecommitted=NULL
+      char savepath[MAX_JOB_SIZE]=NULL,
+      char datecommitted[MAX_JOB_SIZE]=NULL
       ) {
 
     uint64_t i = 0;
@@ -144,20 +134,13 @@ public:
       if (i == jobid) { 
         std::cout << "will replace at " << n->jobid << " with jobstage " << jobstage << std::endl;
         transaction::exec_tx(pop, [&] {
-            //if (job) { n->job = job; }
-            //if (job) { strcpy(n->job, job); }
             if (job) {
               pstrcpy(n->job, job);
-              //for (j=0; job[j] != '\0'; j++) {
-              //  n->job[j] = job[j];
-              //}
             }
             if (jobstage) { n->jobstage = jobstage; }
-            //if (savepath) { n->savepath = savepath; }
             if (savepath) {
               pstrcpy(n->savepath, savepath);
             }
-            //if (datecommitted) { n->datecommitted = datecommitted ; }
             if (datecommitted) {
               pstrcpy(n->datecommitted, datecommitted);
             }
@@ -474,17 +457,11 @@ PyObject* get(PyObject *self, PyObject *args) {
 
   // whose elements can be converted
   // to populate our list
-  //PyList_SetItem(outlist, 0, PyLong_FromLong(data.jobid));
-  //PyList_SetItem(outlist, 1, PyBytes_FromString(data.job));
-  //PyList_SetItem(outlist, 2, PyLong_FromLong(data.jobstage));
-  //PyList_SetItem(outlist, 3, PyBytes_FromString(data.savepath));
-  //PyList_SetItem(outlist, 4, PyBytes_FromString(data.datecommitted));
   PyList_SetItem(outlist, 0, PyLong_FromLong(data.jobid));
   PyList_SetItem(outlist, 1, PyBytes_FromString(data.job));
-  //PyList_SetItem(outlist, 1, PyLong_FromLong(0));
-  PyList_SetItem(outlist, 2, PyLong_FromLong(0));
-  PyList_SetItem(outlist, 3, PyLong_FromLong(0));
-  PyList_SetItem(outlist, 4,  PyLong_FromLong(0));
+  PyList_SetItem(outlist, 2, PyLong_FromLong(data.jobstage));
+  PyList_SetItem(outlist, 3, PyBytes_FromString(data.savepath));
+  PyList_SetItem(outlist, 4, PyBytes_FromString(data.datecommitted));
   pop.close();
 
   std::cout << "\t Converted data" << std::endl;
