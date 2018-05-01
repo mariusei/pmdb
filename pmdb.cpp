@@ -70,6 +70,8 @@ public:
         n->datecommitted = datecommitted;
         n->next = NULL;
 
+        std::cout << "\t\t pushed: " << n->jobid << " with job " << n->job << " and " << n->jobstage << " " << n->savepath << " " << n->datecommitted << std::endl;
+
         if (head == NULL) {
           head = tail = n;
         } else {
@@ -132,10 +134,18 @@ public:
     int64_t count(void) const {
       int64_t out_n = 0;
 
-    for (auto n = head; n != nullptr; n = n->next) {
-      out_n += 1;
+      for (auto n = head; n != nullptr; n = n->next) {
+        out_n += 1;
+      }
+      return out_n;
     }
-    return out_n;
+
+    persistent_ptr<pmem_entry> get_last(void) {
+      persistent_ptr<pmem_entry> n;
+      for (n = head; n != nullptr; n = n->next)
+      {
+      }
+      return n;
     }
 
 
@@ -307,6 +317,8 @@ PyObject* insert(PyObject *self, PyObject *args) {
     status_out = "STATUS_FAILED_INTERPRETATION";
   }
 
+  int64_t n_objects_found;
+
   std::cout << "\t Parsed input tuples " << std::endl;
 
   pool<pmem_queue> pop;
@@ -332,21 +344,31 @@ PyObject* insert(PyObject *self, PyObject *args) {
 
   std::cout << "\t Found root node " << std::endl;
 
+  n_objects_found = q->count();
 
-  // All is set, push to list
-  q->push(pop, 
-          jobid,
-          job,
-          jobstage,
-          jobpath,
-          jobdatecommitted
-      );
+  std::cout << "\t Found n objects " << n_objects_found << std::endl;
+
+  // reset q
+  q = pop.get_root();
+
+  if (n_objects_found < n_max) {
+    // All is set, push to list
+    q->push(pop, 
+            jobid,
+            job,
+            jobstage,
+            jobpath,
+            jobdatecommitted
+        );
+    status_out = "STATUS_INSERTED";
+  } else {
+    status_out = "STATUS_FAILED_TOO_MANY";
+  }
 
   pop.close();
 
   std::cout << "\t Pushed data to list " << std::endl;
 
-  status_out = "STATUS_INSERTED";
   status_out_py = Py_BuildValue("s", status_out);
 
   std::cout << "\t Done with code " << status_out << std::endl;
