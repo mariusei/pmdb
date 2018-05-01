@@ -129,6 +129,15 @@ public:
     return false;
     }
 
+    int64_t count(void) const {
+      int64_t out_n = 0;
+
+    for (auto n = head; n != nullptr; n = n->next) {
+      out_n += 1;
+    }
+    return out_n;
+    }
+
 
     void show(void) const {
 
@@ -185,33 +194,151 @@ bool metadata::set_locked()
 
 ///////   PYTHON EXTENSION   ////////
 
+bool init_pop(char* path, pool<pmem_queue> *pop) {
+  // Database storage
+  if (file_exists(path) != 0) {
+    pop[0] = pool<pmem_queue>::create(
+        path, "queue", PMEMOBJ_MIN_POOL, CREATE_MODE_RW);
+    return true;
+  } else {
+      pop[0] = pool<pmem_queue>::open(path, "queue");
+      return false;
+  }
+}
+
 PyObject* init_pmdb(PyObject *self, PyObject* args) {
   // Input/save file name for database
 
-  const char* path_in;
+  std::cout << "init_pmdb" << std::endl;
 
-  if (!PyArg_ParseTuple(args, "y", 
-                         &path_in)) return NULL;
+  PyObject *path_in_py;
+  char* path_in;
+  int64_t n_objects_in, n_objects_found;
+  char* res_back;
+  PyObject *path_back_py;
+
+  pool<pmem_queue> pop;
+
+  if (!PyArg_ParseTuple(args, "sl", 
+                         &path_in,
+                         &n_objects_in
+                         )) {
+    res_back = "STATUS_FAILED_INTERPRETATION";
+    path_back_py = Py_BuildValue("s", res_back);
+    return path_back_py;
+  }
 
   std::cout << "Path in was: " << path_in << std::endl;
+  std::cout << "Will now check if n elements in exist: " << n_objects_in << std::endl;
+
+  if(init_pop(path_in, &pop)) {
+    res_back = "STATUS_EMPTY"; 
+  } else {
+    res_back = "STATUS_OPEN_POTENTIALLY_FILLED";
+  }
 
 
-  //if (file_exists(cpath) != 0) {
-  //  pop = pool<pmem_queue>::create(
-  //      cpath, "queue", PMEMOBJ_MIN_POOL, CREATE_MODE_RW);
-  //} else {
-  //    pop = pool<pmem_queue>::open(cpath, "queue");
-  //    data_is_set = true;
-  //}
-  //double x = PyFloat_AsDouble(o);
-  //double tanh_x = sinh_impl(x) / cosh_impl(x);
-  //return PyFloat_FromDouble(tanh_x);
+  // Now check the number of elements
+  n_objects_found = 0;
+
+  std::cout << "counting objects in list... from " << n_objects_found << std::endl;
+
+  auto q = pop.get_root(); 
+
+  n_objects_found = q->count();
+
+  std::cout << "found n objects: " << n_objects_found << " in total" << std::endl;
+
+  if (n_objects_found == 0) {
+    res_back = "STATUS_EMPTY";
+  } else if (n_objects_found < n_objects_in) {
+    res_back = "STATUS_NOT_FULL";
+  } else {
+    res_back = "STATUS_FULL";
+  }
+
+  // NOW: return a string!
+  //
+  path_back_py = Py_BuildValue("s", res_back);
+  
+  return path_back_py;
+
+error:
+  return Py_BuildValue("");
+
 }
+
+PyObject* insert(PyObject *self, PyObject *args) {
+  /* Inserts a single element into the database.
+     Must be called sequentially until all n objects
+     have been inserted.
+  */ 
+
+  // Input
+  char* path_in, status_in;
+  int64_t n_max;
+  // Will be inserted in DB:
+  int64_t jobid;
+  char* job;
+  int64_t jobstage;
+  char* jobpath;
+  char* jobdatecommitted;
+
+  char* status_out;
+  PyObject *status_out_py;
+
+  pool<pmem_queue> pop;
+  if(init_pop(path_in, &pop)) {
+    status_out = "STATUS_EMPTY"; 
+  } else {
+    status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
+  }
+
+  if (status_out == "STATUS_EMPTY") {
+    // The database should have been initialized
+    status_out = "STATUS_FAILED_NOT_INITIALIZED";
+    status_out_py = Py_BuildValue("s", status_out);
+    return status_out_py;
+  }
+
+
+  auto q = pop.get_root();
+
+  if (!PyArg_ParseTuple(args, "ssllSlss", 
+                         &path_in,
+                         &status_in,
+                         &n_max,
+                         &jobid,
+                         &job,
+                         &jobstage,
+                         &jobpath,
+                         &jobdatecommitted
+                         )) goto error;
+
+  // All is set, push to list
+  q->push(pop, 
+          jobid,
+          job,
+          jobstage,
+          jobpath,
+          jobdatecommitted
+      );
+
+  status_out = "STATUS_INSERTED";
+  status_out_py = Py_BuildValue("s", status_out);
+  return status_out_py;
+  
+error:
+  return Py_BuildValue("");
+}
+
+
 
 static PyMethodDef pmdb_methods[] = {
     // The first property is the name exposed to Python, fast_tanh, the second is the C++
     // function name that contains the implementation.
-    { "init_pmdb", (PyCFunction)init_pmdb, METH_O, nullptr },
+    { "init_pmdb", (PyCFunction)init_pmdb, METH_VARARGS, nullptr },
+    { "insert", (PyCFunction)insert, METH_VARARGS, nullptr },
 
     // Terminate the array with an object containing nulls.
     { nullptr, nullptr, 0, nullptr }
