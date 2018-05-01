@@ -6,19 +6,19 @@ import pickle
 
 fout = 'tst3.pmem'
 
-n_el = 10240
+n_el = 48
 
 
-print("######## TESTING 0 #######")
-
-status1 = pmdb.init_pmdb(fout, 12)
-
-print("######## TESTING 2 #######")
-
-print("Finished with exit code: ", status1)
-
-# Try generating some data
-
+#print("######## TESTING 0 #######")
+#
+#status1 = pmdb.init_pmdb(fout, n_el)
+#
+#print("######## TESTING 2 #######")
+#
+#print("Finished with exit code: ", status1)
+#
+## Try generating some data
+#
 #jids = [i for i in range(n_el)]
 #jobs = [pickle.dumps([i,3*i**2]) for i in range(n_el)]
 #jobstages = [i//3 for i in range(n_el)]
@@ -39,13 +39,15 @@ print("Finished with exit code: ", status1)
 #        jobstages,
 #        jobpaths,
 #        jobdatecommitteds)
-
-print("######## TESTING GET #######")
+#
+#print("######## TESTING GET #######")
 
 # Try fetching a job
 
 ix = 24
 
-jobinfo = pmdb.get(fout, 'OK', n_el, ix)
-print(jobinfo)
+print(pmdb.get(fout, 'OK', n_el, ix))
+print(pmdb.get(fout, 'OK', n_el, 12))
+print(pmdb.get(fout, 'OK', n_el, 36))
+print(pmdb.get(fout, 'OK', n_el, ix))
 

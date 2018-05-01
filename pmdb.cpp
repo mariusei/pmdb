@@ -447,8 +447,10 @@ PyObject* get(PyObject *self, PyObject *args) {
   PyList_SetItem(outlist, 2, PyLong_FromLong(0));
   PyList_SetItem(outlist, 3, PyLong_FromLong(0));
   PyList_SetItem(outlist, 4,  PyLong_FromLong(0));
+  pop.close();
 
   std::cout << "\t Converted data" << std::endl;
+
 
   return outlist;
 
