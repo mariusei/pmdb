@@ -119,20 +119,23 @@ public:
 
   bool set(pool_base &pop,
       int64_t jobid,
-      char job[MAX_JOB_SIZE]=NULL,
-      int64_t jobstage=NULL,
-      char savepath[MAX_JOB_SIZE]=NULL,
-      char datecommitted[MAX_JOB_SIZE]=NULL
+      char* job = NULL,
+      int64_t jobstage = NULL,
+      char* savepath = NULL,
+      char* datecommitted = NULL
       ) {
 
     uint64_t i = 0;
     uint64_t j = 0;
     auto n = head;
 
+    //std::cout << "IN SET" << std::endl;
+
+    // Spool forward to the correct item
     for (n; n != NULL; n = n->next) {
-      std::cout << i << std::endl;
+      //std::cout << i << std::endl;
       if (i == jobid) { 
-        std::cout << "will replace at " << n->jobid << " with jobstage " << jobstage << std::endl;
+        //std::cout << "will replace at " << n->jobid << " with jobstage " << jobstage << std::endl;
         transaction::exec_tx(pop, [&] {
             if (job) {
               pstrcpy(n->job, job);
@@ -148,35 +151,35 @@ public:
         return true;
       }
       i+= 1;
-      } 
+    } 
     return false;
-    }
+  }
 
-    int64_t count(void) const {
-      int64_t out_n = 0;
-
-      for (auto n = head; n != nullptr; n = n->next) {
-        out_n += 1;
-      }
-      return out_n;
-    }
-
-    persistent_ptr<pmem_entry> get_last(void) {
-      persistent_ptr<pmem_entry> n;
-      for (n = head; n != nullptr; n = n->next)
-      {
-      }
-      return n;
-    }
-
-
-    void show(void) const {
+  int64_t count(void) const {
+    int64_t out_n = 0;
 
     for (auto n = head; n != nullptr; n = n->next) {
-      std::cout << n->jobid << " with job " << n->job << " committed at " << n->datecommitted << std::endl;
+      out_n += 1;
     }
-    return;
+    return out_n;
+  }
+
+  persistent_ptr<pmem_entry> get_last(void) {
+    persistent_ptr<pmem_entry> n;
+    for (n = head; n != nullptr; n = n->next)
+    {
     }
+    return n;
+  }
+
+
+  void show(void) const {
+
+  for (auto n = head; n != nullptr; n = n->next) {
+    std::cout << n->jobid << " with job " << n->job << " committed at " << n->datecommitted << std::endl;
+  }
+  return;
+  }
 
 private:
   persistent_ptr<pmem_entry> head;
@@ -471,6 +474,125 @@ PyObject* get(PyObject *self, PyObject *args) {
 
 }
 
+PyObject* set_pyerr(const char* errstring, PyObject* element=NULL) {
+  /* Raises exception with error string `errstring`,
+   * of type `exception` (e.g. PyValueError) and
+   * optionally returns a Python object `element`.
+   */
+  PyObject* out = PyList_New(2);
+  PyObject* out1 = PyBytes_FromString(errstring);
+
+  PyList_SetItem(out, 0, out1 );
+  if (element) {
+    PyList_SetItem(out, 1, element);
+  } else {
+    PyObject* out2 = PyLong_FromLong(0);
+    PyList_SetItem(out, 1, out2);
+  }
+
+  return out;
+}
+
+
+
+PyObject* set(PyObject *self, PyObject *args, PyObject *kwords) {
+  /* Sets values to a single entry in the database
+   * returns status code
+  */ 
+
+  std::cout << "pmdb::set" << std::endl;
+
+  // Input
+  char* path_in, status_in;
+  int64_t n_max, index;
+
+  
+  // Potential input objects, read in as keywords
+  PyObject *jobid = nullptr; // this one must be set
+  PyObject *job = nullptr;
+  PyObject *jobstage = nullptr;
+  PyObject *jobpath = nullptr;
+  PyObject *jobdatecommitted = nullptr;
+
+  static char *kwlist[] = {"path_in", "status_in", "n_max",
+    "jobid", "job", "jobstage", "jobpath", "jobdatecommitted", NULL};
+
+  // Will be parsed into these:
+  int64_t jobid_loc;
+  char* job_loc;
+  int64_t jobstage_loc;
+  char* jobpath_loc;
+  char* jobdatecommitted_loc;
+
+  char* status_out;
+  PyObject *status_out_py;
+
+  std::cout << "\t Initialized " << std::endl;
+
+  PyArg_ParseTupleAndKeywords(args, kwords,
+                        "sslO|OOOO:set", kwlist,
+                         &path_in,
+                         &status_in,
+                         &n_max,
+                         &jobid,
+                         &job,
+                         &jobstage,
+                         &jobpath,
+                         &jobdatecommitted
+                         );
+
+  // Exit if we failed:
+  if (!jobid) {
+    status_out = "STATUS_FAILED_SPECIFIY_JOBID";
+    return PyErr_Format(PyExc_AttributeError, status_out);
+  } else if (status_out == "STATUS_FAILED_INTERPRETATION") {
+    return PyErr_Format(PyExc_AttributeError, status_out);
+  } else if (PyLong_AsLong(jobid) > n_max) {
+    status_out == "STATUS_INDEX_OUT_OF_BOUNDS";
+    return PyErr_Format(PyExc_AttributeError, status_out);
+  }
+
+  // Connect to persistent memory
+  pool<pmem_queue> pop;
+  if(init_pop(path_in, &pop)) {
+    status_out = "STATUS_EMPTY"; 
+  } else {
+    status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
+  }
+
+  std::cout << "\t Opened PM file " << std::endl;
+
+  // reset q
+  auto q = pop.get_root();
+
+  // Set the entries of the index that are not null
+  jobid_loc = PyLong_AsLong(jobid);
+  if (job) { job_loc = PyBytes_AsString(job); } else { job_loc = NULL; }
+  if (jobstage) { jobstage_loc = PyLong_AsLong(jobstage); } else { jobstage_loc = NULL; }
+  if (jobpath) { jobpath_loc = PyBytes_AsString(jobpath); } else { jobpath_loc = NULL; }
+  if (jobdatecommitted) {
+    jobdatecommitted_loc = PyBytes_AsString(jobdatecommitted);
+  } else {
+    jobdatecommitted_loc = NULL;
+  }
+
+  if (!q->set(pop,
+        jobid_loc,
+        job_loc,
+        jobstage_loc,
+        jobpath_loc,
+        jobdatecommitted_loc)) {
+    pop.close();
+    status_out = "STATUS_FAILED_SETTING_VALUES";
+    return PyErr_Format(PyExc_AttributeError, status_out);
+  } else {
+    pop.close();
+    status_out = "STATUS_SUCCCESS";
+  }
+
+  return Py_BuildValue("s", status_out);
+
+}
 
 
 
@@ -480,6 +602,7 @@ static PyMethodDef pmdb_methods[] = {
     { "init_pmdb", (PyCFunction)init_pmdb, METH_VARARGS, nullptr },
     { "insert", (PyCFunction)insert, METH_VARARGS, nullptr },
     { "get", (PyCFunction)get, METH_VARARGS, nullptr },
+    { "set", (PyCFunction)set, METH_VARARGS|METH_KEYWORDS, nullptr },
 
     // Terminate the array with an object containing nulls.
     { nullptr, nullptr, 0, nullptr }
