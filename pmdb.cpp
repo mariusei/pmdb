@@ -33,11 +33,6 @@ typedef struct {
 } entry_shared;
 
 
-
-
-
-
-
 class pmem_queue {
 
 
@@ -98,6 +93,11 @@ public:
         out.jobstage = n->jobstage;
         out.savepath = n->savepath;
         out.datecommitted = n->datecommitted;
+        
+        //std::cout << "GOT in get: "<< out.jobid << " and job (ext) " << n->job << std::endl;
+        std::cout << "GOT in get: "<< out.jobid << " and job (int) " << n->job << std::endl;
+        //std::cout << "GOT in get: "<< out.jobid << " and job (ext) " << n->job << " vs intern " << out.job << std::endl;
+
         return out;
       }
       i+= 1;
@@ -208,7 +208,8 @@ bool init_pop(char* path, pool<pmem_queue> *pop) {
   // Database storage
   if (file_exists(path) != 0) {
     pop[0] = pool<pmem_queue>::create(
-        path, "queue", PMEMOBJ_MIN_POOL, CREATE_MODE_RW);
+        //path, "queue", PMEMOBJ_MIN_POOL, CREATE_MODE_RW);
+        path, "queue", 16*1024*1024, CREATE_MODE_RW);
     return true;
   } else {
       pop[0] = pool<pmem_queue>::open(path, "queue");
@@ -386,6 +387,74 @@ error:
   return Py_BuildValue("");
 }
 
+PyObject* get(PyObject *self, PyObject *args) {
+  /* Gets a single object,
+   * returns it as a Python list 
+  */ 
+
+  std::cout << "pmdb::get" << std::endl;
+
+  // Input
+  char* path_in, status_in;
+  int64_t n_max, index;
+
+  
+  // These objects will be set and stored in a list
+  PyObject *jobid, *job, *jobstage, *jobpath, *jobdatecommitted;
+  PyObject *outlist = PyList_New(5);
+
+  char* status_out;
+
+  // Parse inputs
+  if (!PyArg_ParseTuple(args, "ssll", 
+                         &path_in,
+                         &status_in,
+                         &n_max,
+                         &index
+                         )) {
+    return Py_BuildValue("");
+  //  status_out = "STATUS_FAILED_INTERPRETATION";
+  }
+
+
+  pool<pmem_queue> pop;
+  if(init_pop(path_in, &pop)) {
+    status_out = "STATUS_EMPTY"; 
+  } else {
+    status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
+  }
+
+  std::cout << "\t Opened PM file " << std::endl;
+
+  // reset q
+  auto q = pop.get_root();
+
+  // Retrieved object is a struct
+  entry_shared data = q->get(index);
+
+  std::cout << "\t Retrieved data, e.g. jobix " << data.jobid << " jobstage " << data.jobstage << " and job " << data.job << " ok." << std::endl;
+
+  // whose elements can be converted
+  // to populate our list
+  //PyList_SetItem(outlist, 0, PyLong_FromLong(data.jobid));
+  //PyList_SetItem(outlist, 1, PyBytes_FromString(data.job));
+  //PyList_SetItem(outlist, 2, PyLong_FromLong(data.jobstage));
+  //PyList_SetItem(outlist, 3, PyBytes_FromString(data.savepath));
+  //PyList_SetItem(outlist, 4, PyBytes_FromString(data.datecommitted));
+  PyList_SetItem(outlist, 0, PyLong_FromLong(data.jobid));
+  //PyList_SetItem(outlist, 1, PyBytes_FromString(data.job));
+  PyList_SetItem(outlist, 1, PyLong_FromLong(0));
+  PyList_SetItem(outlist, 2, PyLong_FromLong(0));
+  PyList_SetItem(outlist, 3, PyLong_FromLong(0));
+  PyList_SetItem(outlist, 4,  PyLong_FromLong(0));
+
+  std::cout << "\t Converted data" << std::endl;
+
+  return outlist;
+
+}
+
+
 
 
 static PyMethodDef pmdb_methods[] = {
@@ -393,6 +462,7 @@ static PyMethodDef pmdb_methods[] = {
     // function name that contains the implementation.
     { "init_pmdb", (PyCFunction)init_pmdb, METH_VARARGS, nullptr },
     { "insert", (PyCFunction)insert, METH_VARARGS, nullptr },
+    { "get", (PyCFunction)get, METH_VARARGS, nullptr },
 
     // Terminate the array with an object containing nulls.
     { nullptr, nullptr, 0, nullptr }
