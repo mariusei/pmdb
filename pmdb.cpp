@@ -260,10 +260,13 @@ PyObject* init_pmdb(PyObject *self, PyObject* args) {
   // NOW: return a string!
   //
   path_back_py = Py_BuildValue("s", res_back);
+
+  pop.close();
   
   return path_back_py;
 
 error:
+  pop.close();
   return Py_BuildValue("");
 
 }
@@ -273,6 +276,8 @@ PyObject* insert(PyObject *self, PyObject *args) {
      Must be called sequentially until all n objects
      have been inserted.
   */ 
+
+  std::cout << "pmdb::insert" << std::endl;
 
   // Input
   char* path_in, status_in;
@@ -287,22 +292,7 @@ PyObject* insert(PyObject *self, PyObject *args) {
   char* status_out;
   PyObject *status_out_py;
 
-  pool<pmem_queue> pop;
-  if(init_pop(path_in, &pop)) {
-    status_out = "STATUS_EMPTY"; 
-  } else {
-    status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
-  }
-
-  if (status_out == "STATUS_EMPTY") {
-    // The database should have been initialized
-    status_out = "STATUS_FAILED_NOT_INITIALIZED";
-    status_out_py = Py_BuildValue("s", status_out);
-    return status_out_py;
-  }
-
-
-  auto q = pop.get_root();
+  std::cout << "\t Initialized " << std::endl;
 
   if (!PyArg_ParseTuple(args, "ssllSlss", 
                          &path_in,
@@ -313,7 +303,35 @@ PyObject* insert(PyObject *self, PyObject *args) {
                          &jobstage,
                          &jobpath,
                          &jobdatecommitted
-                         )) goto error;
+                         )) {
+    status_out = "STATUS_FAILED_INTERPRETATION";
+  }
+
+  std::cout << "\t Parsed input tuples " << std::endl;
+
+  pool<pmem_queue> pop;
+  if(init_pop(path_in, &pop)) {
+    status_out = "STATUS_EMPTY"; 
+  } else {
+    status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
+  }
+
+  std::cout << "\t Opened PM file " << std::endl;
+
+  if (status_out == "STATUS_EMPTY") {
+    // The database should have been initialized
+    status_out = "STATUS_FAILED_NOT_INITIALIZED";
+    status_out_py = Py_BuildValue("s", status_out);
+    return status_out_py;
+  }
+
+  std::cout << "\t Checked status of file " << std::endl;
+
+
+  auto q = pop.get_root();
+
+  std::cout << "\t Found root node " << std::endl;
+
 
   // All is set, push to list
   q->push(pop, 
@@ -324,11 +342,19 @@ PyObject* insert(PyObject *self, PyObject *args) {
           jobdatecommitted
       );
 
+  pop.close();
+
+  std::cout << "\t Pushed data to list " << std::endl;
+
   status_out = "STATUS_INSERTED";
   status_out_py = Py_BuildValue("s", status_out);
+
+  std::cout << "\t Done with code " << status_out << std::endl;
+
   return status_out_py;
   
 error:
+  pop.close();
   return Py_BuildValue("");
 }
 
