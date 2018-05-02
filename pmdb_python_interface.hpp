@@ -69,28 +69,6 @@ PyObject* set(PyObject *self, PyObject *args, PyObject *kwords);
 */ 
 PyObject* search(PyObject *self, PyObject *args, PyObject *kwords);
 
-static PyMethodDef pmdb_methods[] = {
-    { "init_pmdb", (PyCFunction)init_pmdb, METH_VARARGS, nullptr },
-    { "insert", (PyCFunction)insert, METH_VARARGS, nullptr },
-    { "get", (PyCFunction)get, METH_VARARGS, nullptr },
-    { "set", (PyCFunction)set, METH_VARARGS|METH_KEYWORDS, nullptr },
-    { "search", (PyCFunction)search, METH_VARARGS|METH_KEYWORDS, nullptr },
-
-    // Terminate the array with an object containing nulls.
-    { nullptr, nullptr, 0, nullptr }
-};
-
-static PyModuleDef pmdb_module = {
-    PyModuleDef_HEAD_INIT,
-    "pmdb",                        // Module name to use with Python import statements
-    "Permament Memory Database Python bindings",  // Module description
-    0,
-    pmdb_methods // Structure that defines the methods of the module
-};
-
 PyMODINIT_FUNC PyInit_pmdb();
-    return PyModule_Create(&pmdb_module);
-}
-
 
 #endif

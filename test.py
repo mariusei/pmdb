@@ -81,10 +81,10 @@ print("Converted job to: ", json.loads(out[1]))
 print("######## TESTING SEARCH #######")
 
 out = pmdb.search(fout, n_el,
-        jobid=('>', 5),
+        jobid=('<', 0),
         jobstage=('<=', 8),
         #jobpath=('==', 'a_special_path!')
-        only_first=True,
+        only_first=False,
         )
 print(out)
 
