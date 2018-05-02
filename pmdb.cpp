@@ -46,6 +46,68 @@ inline bool pstrcpy(T strout, U strin) {
   return true;
 }
 
+template <typename T, typename U>
+int strcmp2(T str1, U str2) {
+// https://stackoverflow.com/questions/20004458/optimized-strcmp-implementation
+// Sergey Belyashov
+    int s1;
+    int s2;
+    do {
+        s1 = *str1++;
+        s2 = *str2++;
+        if (s1 == 0)
+            break;
+    } while (s1 == s2);
+    return (s1 < s2) ? -1 : (s1 > s2);
+}
+
+template <typename T, typename U>
+int64_t query(T a, const char* q, U b) {
+//inline int64_t query(int64_t a, const char* q, int64_t b) {
+  // parse q into: operator and value
+  
+  //std::cout << "in query w/ " << a << q << b << std::endl;
+  
+  const char* o[] = {"==", ">=", "<=", ">", "<", "!="};
+
+  // ==
+  if (strcmp(q, o[0]) == 0) {
+    return (a == b);
+  // >=
+  } else if (strcmp(q, o[1])==0) {
+    return (a >= b);
+  } else if (strcmp(q, o[2])==0) {
+    return (a <= b);
+  } else if (strcmp(q, o[3])==0) {
+    return (a > b);
+  } else if (strcmp(q, o[4])==0) {
+    return (a < b);
+  } else if (strcmp(q, o[5])==0) {
+    return (a != b);
+  } else {
+    return -1;
+  }
+}
+
+template <typename T, typename U>
+int64_t query_str(T a, const char* q, U b) {
+//inline int64_t query_str(const char* a, const char* q, const char* b) {
+  // Parse q into: operator and value
+  
+  const char* o[] = {"==", "!="};
+
+  // ==
+  if (strcmp(q, o[0]) == 0) {
+    if (strcmp2(a,b)==0) { return 1; }
+    else { return 0; }
+  } else if (strcmp(q, o[1]) == 0) {
+    if (strcmp2(a,b)!=0) { return 1; }
+    else { return 0; }
+  } else {
+    return -1;
+  }
+}
+
 class pmem_queue {
 
 
@@ -181,6 +243,61 @@ public:
   return;
   }
 
+  int64_t search_all(int64_t* out_array, int64_t n_el,
+      const char* jobid_oper=nullptr, int64_t jobid_q=-1,
+      const char* job_oper=nullptr, const char* job_q=nullptr,
+      const char* jobstage_oper=nullptr, int64_t jobstage_q=-1,
+      const char* jobpath_oper=nullptr, const char* jobpath_q=nullptr,
+      const char* jobdatecommitted_oper=nullptr, const char* jobdatecommitted_q=nullptr,
+      bool only_first=false) {
+
+    // Will search n_el starting from 0 for the conditions and queries given
+    // and assign out_array[i] = True where the queries match
+    //
+    // If only_first is true, will abort at first chance and return the index
+
+    //std::cout << "IN SET" << std::endl;
+    auto n = head;
+    int64_t i = 0;
+    int64_t res;
+
+
+    // Spool forward to the correct item
+    for (n; n != NULL; n = n->next) {
+      res = 1; // assume true 
+      if (jobid_oper) {
+        res *= query(n->jobid, jobid_oper, jobid_q);
+      }
+      if (job_oper) {
+        res *= query_str(n->job, job_oper, job_q);
+      }
+      if (jobstage_oper) {
+        res *= query(n->jobstage, jobstage_oper, jobstage_q);
+      }
+      if (jobpath_oper) {
+        res *= query_str(n->savepath, jobpath_oper, jobpath_q);
+      }
+      if (jobdatecommitted_oper) {
+        res *= query_str(n->datecommitted, jobdatecommitted_oper, jobdatecommitted_q);
+      }
+      
+      // Check if we shall abort?
+      if (only_first) {
+        if (res) {
+          return i;
+        }
+      }
+
+
+      out_array[i] = res;
+      i += 1;
+    }
+
+    return i;
+  }
+
+
+
 private:
   persistent_ptr<pmem_entry> head;
   persistent_ptr<pmem_entry> tail;
@@ -224,6 +341,8 @@ bool metadata::set_locked()
   data_is_set = 1;
   return true;
 }
+
+
 
 
 ///////   PYTHON EXTENSION   ////////
@@ -539,17 +658,18 @@ PyObject* set(PyObject *self, PyObject *args, PyObject *kwords) {
                          &jobstage,
                          &jobpath,
                          &jobdatecommitted
-                         );
+                        );
 
   // Exit if we failed:
   if (!jobid) {
     status_out = "STATUS_FAILED_SPECIFIY_JOBID";
     return PyErr_Format(PyExc_AttributeError, status_out);
-  } else if (status_out == "STATUS_FAILED_INTERPRETATION") {
-    return PyErr_Format(PyExc_AttributeError, status_out);
+  } else if (!job && !jobstage && !jobpath && !jobdatecommitted) {
+    status_out = "STATUS_FAILED_SPECIFY_ONE_OR_MORE_FIELDS";
+    return PyErr_Format(PyExc_ValueError, status_out);
   } else if (PyLong_AsLong(jobid) > n_max) {
     status_out == "STATUS_INDEX_OUT_OF_BOUNDS";
-    return PyErr_Format(PyExc_AttributeError, status_out);
+    return PyErr_Format(PyExc_IndexError, status_out);
   }
 
   // Connect to persistent memory
@@ -594,7 +714,178 @@ PyObject* set(PyObject *self, PyObject *args, PyObject *kwords) {
 
 }
 
+PyObject* search(PyObject *self, PyObject *args, PyObject *kwords) {
+  /* Search database for objects fulfilling criteria,
+   * returns index list specifying which indices fulfil these
+   * which then can be used to get/set values.
+   *
+   * Use `only_first=True` to abort and return the first found element.
+  */ 
 
+  std::cout << "pmdb::search" << std::endl;
+
+  // Input
+  char* path_in, status_in;
+  
+  // Potential search objects, read in as keywords
+  PyObject *jobid = nullptr;
+  PyObject *job = nullptr;
+  PyObject *jobstage = nullptr;
+  PyObject *jobpath = nullptr;
+  PyObject *jobdatecommitted = nullptr;
+
+  static char *kwlist[] = {"path_in", "n_max",
+    "jobid", "job", "jobstage", "jobpath", "jobdatecommitted", "only_first", NULL};
+
+  // Will be parsed into these:
+  int64_t n_max = NULL;
+  int64_t jobid_loc;
+  char* job_loc;
+  int64_t jobstage_loc;
+  char* jobpath_loc;
+  char* jobdatecommitted_loc;
+  bool only_first = false;  // returns only first element?
+
+  char* status_out;
+  PyObject *status_out_py;
+  int64_t* query_is_true;
+  PyObject *result_list;
+  int64_t result_list_size, result_list_ix;
+
+  std::cout << "\t Initialized " << std::endl;
+
+  PyArg_ParseTupleAndKeywords(args, kwords,
+                        "sl|OOOOOp:search", kwlist,
+                         &path_in,
+                         &n_max,
+                         &jobid,
+                         &job,
+                         &jobstage,
+                         &jobpath,
+                         &jobdatecommitted,
+                         &only_first
+                        );
+
+  // Exit if we failed:
+  if (!path_in) {
+    status_out = "STATUS_FAILED_SPECIFY_PATH_IN";
+    return PyErr_Format(PyExc_ValueError, status_out);
+  } else if (!n_max) {
+    status_out = "STATUS_FAILED_SPECIFY_N_MAX";
+    return PyErr_Format(PyExc_ValueError, status_out);
+  } else if (!jobid && !job && !jobstage && !jobpath && !jobdatecommitted) {
+    status_out = "STATUS_FAILED_SPECIFY_ONE_OR_MORE_FIELDS";
+    return PyErr_Format(PyExc_ValueError, status_out);
+  } 
+
+  // Each query is a tuple of an operator and a statement,
+  // ie jobid=('>', 3)
+  // will return all jobids greater than 3.
+
+	int64_t q_status;
+
+  char* oper_jobid = nullptr;
+  char* oper_job = nullptr;
+  char* oper_jobstage = nullptr;
+  char* oper_jobpath = nullptr;
+  char* oper_datecommitted = nullptr;
+
+  
+  int64_t jobid_q = -1;
+  char* job_q = nullptr;
+  int64_t jobstage_q = -1;
+  char* jobpath_q = nullptr;
+  char* datecommitted_q = nullptr;
+
+  if (jobid) {
+    oper_jobid = new char[8];
+    PyArg_ParseTuple(jobid, "sl", &oper_jobid, &jobid_q);
+  }
+  if (job) {
+    oper_job = new char[8];
+    PyArg_ParseTuple(job, "ss", &oper_job,  &job_q);
+  }
+  if (jobstage) {
+    oper_jobstage = new char[8];
+    PyArg_ParseTuple(jobstage, "sl", &oper_jobstage, &jobstage_q);
+  }
+  if (jobpath) {
+    oper_jobpath = new char[8];
+    PyArg_ParseTuple(jobpath, "ss", &oper_jobpath, &jobpath_q);
+  }
+  if (jobdatecommitted) {
+    oper_datecommitted = new char[8];
+    PyArg_ParseTuple(jobdatecommitted, "ss", &oper_datecommitted, &datecommitted_q);
+  }
+
+  std::cout << "Found operator of jobid: " << oper_jobid << std::endl;
+
+  // Connect to persistent memory
+  pool<pmem_queue> pop;
+  if(init_pop(path_in, &pop)) {
+    status_out = "STATUS_EMPTY"; 
+  } else {
+    status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
+  }
+
+  std::cout << "\t Opened PM file " << std::endl;
+
+  // reset q
+  auto q = pop.get_root();
+
+  // Go through all the elements and return the indices where they are true
+
+  // Will interface with the search function, each index has an entry
+  query_is_true = new int64_t[n_max];
+
+  // The search function loops over the data and sets the values of query_is_true
+	q_status = q->search_all(
+      query_is_true, n_max,
+      oper_jobid, jobid_q,
+      oper_job, job_q,
+      oper_jobstage, jobstage_q,
+      oper_jobpath, jobpath_q,
+      oper_datecommitted, datecommitted_q,
+      only_first);
+
+  pop.close();
+
+  // Generate result list for Python, returning only indices
+  // First, find size of it:
+  result_list_size = 0;
+  if (!only_first) {
+    for (int ii=0; ii < n_max; ii++) {
+      if (query_is_true[ii] != 0) {
+        result_list_size += 1;
+      }
+    }
+  } else {
+    result_list_size = 1;
+  }
+  
+  // Make it
+  result_list = PyList_New(result_list_size);
+
+  // Insert indices:
+  result_list_ix = 0;
+  if (!only_first) {
+    for (int ii=0; ii < n_max; ii++) {
+      if (query_is_true[ii] != 0) {
+        PyList_SetItem(result_list, result_list_ix, PyLong_FromLong(ii));
+        result_list_ix += 1;
+      }
+    }
+  } else {
+    // Sets the first element to the first index of occurrence
+    // given from the q_status output
+    PyList_SetItem(result_list, 0, PyLong_FromLong(q_status));
+  }
+
+  delete query_is_true;
+
+  return result_list;
+
+}
 
 static PyMethodDef pmdb_methods[] = {
     // The first property is the name exposed to Python, fast_tanh, the second is the C++
@@ -603,6 +894,7 @@ static PyMethodDef pmdb_methods[] = {
     { "insert", (PyCFunction)insert, METH_VARARGS, nullptr },
     { "get", (PyCFunction)get, METH_VARARGS, nullptr },
     { "set", (PyCFunction)set, METH_VARARGS|METH_KEYWORDS, nullptr },
+    { "search", (PyCFunction)search, METH_VARARGS|METH_KEYWORDS, nullptr },
 
     // Terminate the array with an object containing nulls.
     { nullptr, nullptr, 0, nullptr }

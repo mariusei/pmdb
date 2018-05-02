@@ -42,11 +42,11 @@ n_el = 1024
 #        jobpaths,
 #        jobdatecommitteds)
 #
-print("######## TESTING GET #######")
-#
-# Try fetching a job
-#for i in range(n_el):
-#    print(pmdb.get(fout, 'OK', n_el, i))
+#print("######## TESTING GET #######")
+##
+## Try fetching a job
+##for i in range(n_el):
+##    print(pmdb.get(fout, 'OK', n_el, i))
 
 ix = 24
 
@@ -68,9 +68,23 @@ print("Converted job to: ", json.loads(out[1]))
 print("######## TESTING SET #######")
 
 out = pmdb.set(fout, 'OK', n_el, ix,
-        job=json.dumps([12,34]).encode('utf8'))
+        job=json.dumps([12,34]).encode('utf8'),
+        jobpath=b'a_special_path!' 
+        )
 print(out)
 print("CHECK IF THE JOB CHANGED?")
 out = pmdb.get(fout, 'OK', n_el, ix)
 print(out)
 print("Converted job to: ", json.loads(out[1]))
+
+
+print("######## TESTING SEARCH #######")
+
+out = pmdb.search(fout, n_el,
+        jobid=('>', 5),
+        jobstage=('<=', 8),
+        #jobpath=('==', 'a_special_path!')
+        only_first=True,
+        )
+print(out)
+
