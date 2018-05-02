@@ -7,7 +7,13 @@ os.environ["CXX"] = "g++"
 pmdb_module = Extension('pmdb',
         extra_compile_args=['-std=c++11'],
         extra_link_args=['-lpmemobj'],
-        sources = ['pmdb.cpp'])
+        #sources = ['pmdb.cpp']
+        sources = [
+            'pmdb_python_interface.cpp',
+            'pmdb_core.cpp',
+            'pmdb_helpers.cpp',
+            ]
+        )
 
 setup(name = 'pmdb', version = '1.0',
     description = 'Persistent Memory Database - Python extension',
