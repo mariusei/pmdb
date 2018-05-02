@@ -47,7 +47,7 @@ The following functions are available through `import pmdb`:
 
 ## Requirements
 
-- `pmdk` -- must be installed, can be run even on both next generation (non-volatile, persistent memory-only) or traditional machines (volatile memory and storage).  A Linux kernel can be built for traditional machines where a region of the RAM is reserved for persistent storage (however, only as long as the computer runs), yielding the speed gains one could expect from this form of storage media.
+- `pmdk` -- must be installed, can be run even on both next generation (non-volatile, persistent memory-only) or traditional machines (volatile memory and storage).  A Linux kernel can be built for traditional machines where a region of the RAM is reserved for persistent storage (however, only for as long as the computer runs), yielding the speed gains one could expect from this form of storage media.
 - `Python 3.6` for use of the Python extensions.
 
 ## Notes
