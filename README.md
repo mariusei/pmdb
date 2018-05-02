@@ -54,5 +54,5 @@ The following functions are available through `import pmdb`:
 
 The size of the persistent memory file must be specified before generating the database. This value is set in calls to `pool<pmem_queue>::create(path_to_pmem_file, "queue", FILE SIZE HERE IN BYTES, create mode)`.
 
-The maximum length of character string entry is given in the compiler flag `MAX_JOB_SIZE`.
+The maximum length of the character string entries is given in the compiler flag `MAX_JOB_SIZE`.
 
