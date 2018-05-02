@@ -209,6 +209,7 @@ int64_t pmem_queue::search_all(
 
   // Spool forward to the correct item
   for (n; n != NULL; n = n->next) {
+    //std::cout << i << std::endl;
     res = 1; // assume true 
     if (jobid_oper) {
       res *= query(n->jobid, jobid_oper, jobid_q);

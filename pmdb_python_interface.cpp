@@ -515,7 +515,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
     PyArg_ParseTuple(jobdatecommitted, "ss", &oper_datecommitted, &datecommitted_q);
   }
 
-  std::cout << "Found operator of jobid: " << oper_jobid << std::endl;
+  //std::cout << "Found operator of jobid: " << oper_jobid << std::endl;
 
   // Connect to persistent memory
   pool<pmem_queue> pop;
@@ -525,7 +525,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
     status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
   }
 
-  std::cout << "\t Opened PM file " << std::endl;
+  //std::cout << "\t Opened PM file " << std::endl;
 
   // reset q
   auto q = pop.get_root();
@@ -534,6 +534,8 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
 
   // Will interface with the search function, each index has an entry
   query_is_true = new int64_t[n_max];
+
+  //std::cout << "\t generated: query is true array " << std::endl;
 
   // The search function loops over the data and sets the values of query_is_true
 	q_status = q->search_all(
@@ -547,6 +549,8 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
 
   pop.close();
 
+  //std::cout << "\t searched " << std::endl;
+
   // Generate result list for Python, returning only indices
   // First, find size of it:
   result_list_size = 0;
@@ -559,6 +563,8 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
   } else {
     result_list_size = 1;
   }
+
+  //std::cout << "\t found size of result list " << std::endl;
   
   // Make it
   result_list = PyList_New(result_list_size);
@@ -579,6 +585,8 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
       PyList_SetItem(result_list, 0, PyLong_FromLong(q_status));
     }
   }
+
+  //std::cout << "\t populated result list " << std::endl;
 
   delete query_is_true;
 

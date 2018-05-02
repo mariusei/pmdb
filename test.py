@@ -7,7 +7,7 @@ import json
 
 fout = 'tst3.pmem'
 
-n_el = 1024
+n_el = 10240
 
 
 #print("######## TESTING 0 #######")
@@ -41,12 +41,12 @@ n_el = 1024
 #        jobstages,
 #        jobpaths,
 #        jobdatecommitteds)
+
+print("######## TESTING GET #######")
 #
-#print("######## TESTING GET #######")
-##
-## Try fetching a job
-##for i in range(n_el):
-##    print(pmdb.get(fout, 'OK', n_el, i))
+# Try fetching a job
+#for i in range(n_el):
+#    print(pmdb.get(fout, 'OK', n_el, i))
 
 ix = 24
 
@@ -81,7 +81,7 @@ print("Converted job to: ", json.loads(out[1]))
 print("######## TESTING SEARCH #######")
 
 out = pmdb.search(fout, n_el,
-        jobid=('<', 0),
+        jobid=('<', 100),
         jobstage=('<=', 8),
         #jobpath=('==', 'a_special_path!')
         only_first=False,
