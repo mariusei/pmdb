@@ -41,8 +41,6 @@ int main() {
   std::string path("test.pmem");
   const char *cpath = path.c_str();
 
-  std::cout << "hei igjen, lagrer til " << path << "\n";
-
   pool<pmem_queue> pop;
   
   int64_t n_el = 123;
@@ -77,10 +75,11 @@ int main() {
   entry_shared res;
   for (int i=0; i< n_el ; i++) {
     res = q->get(i);
-    std::cout << "Got res: " << res.jobid << " jobstage: " << res.jobstage << " datecommitted: " << res.datecommitted << std::endl;
+    std::cout << "Got res: " << res.jobid;
+    std::cout << " jobstage: " << res.jobstage;
+    std::cout << " datecommitted: " << res.datecommitted << std::endl;
   }
 
-  //std::cout << "Got res:" << res.jobid << " " << res.job << " " << res.jobstage << " " << res.datecommitted << std::endl;
 
 
   pop.close();
