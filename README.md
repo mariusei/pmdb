@@ -1,10 +1,10 @@
 # pmdb: Persistent Memory Database
 
-A database where the entries can be stored on the next generation persistent memory storage media. This allows for transactions to occur with the same speeds as one would have when using volatile memory (RAM), however, the entries and changes are saved immediately. There is thus no need for saving or loading of the database, and it will persist across multiple, independent sessions.
+A database where the entries can be stored on the next generation [persistent memory storage media](http://pmem.io/). This allows for transactions to occur with the same speeds as one would have when using volatile memory (RAM), however, the entries and changes are saved immediately. There is thus no need for saving or loading of the database, and it will persist across multiple, independent sessions.
 
-The code is an implementation of functional linked lists based upon an example by Andy Rudoff, Intel (https://www.usenix.org/system/files/login/articles/login_summer17_07_rudoff.pdf).
+The code is an implementation of functional linked lists based upon an example by Andy Rudoff, Intel (https://www.usenix.org/system/files/login/articles/login_summer17_07_rudoff.pdf) which can be found as a part of the [Persistent Memory Development Kit](https://github.com/pmem/pmdk).
 
-It was extended to work as a database for [job_manager](https://github.com/mariusei/job_manager). This includes some ugly, hard coded fields for each list entry:
+It is here extended to act as a database for [job_manager](https://github.com/mariusei/job_manager). This includes some ugly, hard coded fields for each list entry:
 
  - `jobid` -- (intended to be unique, rising from 0) integer,
  - `job` -- Encoded JSON command, up to `MAX_JOB_SIZE` characters (specified in header file),
