@@ -1,6 +1,8 @@
 # pmdb: Persistent Memory Database
 
-Implementation of functional linked lists based upon example by Andy Rudoff, Intel (https://www.usenix.org/system/files/login/articles/login_summer17_07_rudoff.pdf).
+A database where the entries can be stored on the next generation persistent memory storage media. This allows for transactions to occur with the same speeds as one would have when using volatile memory (RAM), however, the entries and changes are saved immediately. There is thus no need for saving or loading of the database, and it will persist across multiple, independent sessions.
+
+The code is an implementation of functional linked lists based upon an example by Andy Rudoff, Intel (https://www.usenix.org/system/files/login/articles/login_summer17_07_rudoff.pdf).
 
 It was extended to work as a database for [job_manager](https://github.com/mariusei/job_manager). This includes some ugly, hard coded fields for each list entry:
 
