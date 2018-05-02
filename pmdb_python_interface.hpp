@@ -41,9 +41,9 @@
 
 bool init_pop(char* path, pmem::obj::pool<pmem_queue> *pop);
 
-PyObject* init_pmdb(PyObject *self, PyObject* args);
+PyObject* init_pmdb(PyObject *self, PyObject* args, PyObject *kwords);
 
-PyObject* insert(PyObject *self, PyObject *args);
+PyObject* insert(PyObject *self, PyObject *args, PyObject *kwords);
 
 /* Gets a single object,
  * returns it as a Python list 
@@ -68,6 +68,8 @@ PyObject* set(PyObject *self, PyObject *args, PyObject *kwords);
  * Use `only_first=True` to abort and return the first found element.
 */ 
 PyObject* search(PyObject *self, PyObject *args, PyObject *kwords);
+
+PyObject* count(PyObject *self, PyObject *args, PyObject *kwords);
 
 PyMODINIT_FUNC PyInit_pmdb();
 

@@ -66,6 +66,7 @@ typedef struct {
   int64_t jobstage;
   char savepath[MAX_JOB_SIZE];
   char datecommitted[MAX_JOB_SIZE];
+  int64_t jobtagged;
 } entry_shared;
 
 
@@ -96,6 +97,7 @@ class pmem_queue {
     pmem::obj::p<int64_t> jobstage;
     pmem::obj::p<char> savepath[MAX_JOB_SIZE];
     pmem::obj::p<char> datecommitted[MAX_JOB_SIZE];
+    pmem::obj::p<int64_t> jobtagged;
   };
 
 
@@ -107,7 +109,8 @@ public:
       char job[MAX_JOB_SIZE],
       int64_t jobstage,
       char savepath[MAX_JOB_SIZE],
-      char datecommitted[MAX_JOB_SIZE]
+      char datecommitted[MAX_JOB_SIZE],
+      int64_t jobtagged
       );
 
   entry_shared get(uint64_t ix);
@@ -118,10 +121,11 @@ public:
       char* job,
       int64_t jobstage,
       char* savepath,
-      char* datecommitted
+      char* datecommitted,
+      int64_t jobtagged
       );
 
-  int64_t count(void) const;
+  int64_t count(void);
   void show(void) const;
 
   int64_t search_all(
@@ -137,6 +141,8 @@ public:
       const char* jobpath_q,
       const char* jobdatecommitted_oper,
       const char* jobdatecommitted_q,
+      const char* jobtagged_oper,
+      int64_t jobtagged_q,
       bool only_first);
 
 

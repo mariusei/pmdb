@@ -67,22 +67,26 @@ using pmem::obj::transaction;
 
 void pmem_queue::push(
     pool_base &pop,
-    int64_t jobid,
-    char job[MAX_JOB_SIZE],
-    int64_t jobstage,
-    char savepath[MAX_JOB_SIZE],
-    char datecommitted[MAX_JOB_SIZE]
+    int64_t jobid = NULL,
+    char job[MAX_JOB_SIZE] = NULL,
+    int64_t jobstage = NULL,
+    char savepath[MAX_JOB_SIZE] = NULL,
+    char datecommitted[MAX_JOB_SIZE] = NULL,
+    int64_t jobtagged = NULL
     )
 {
   uint64_t j;
+  char empty[255] = "\0";
   transaction::exec_tx(pop, [&] {
       auto n = make_persistent<pmem_queue::pmem_entry>();
 
       n->jobid = jobid;
-      pstrcpy(n->job, job);
-      n->jobstage = jobstage;
-      pstrcpy(n->savepath, savepath);
-      pstrcpy(n->datecommitted, datecommitted);
+      
+      if (job) { pstrcpy(n->job, job); } else { pstrcpy(n->job, empty); }
+      if (jobstage) { n->jobstage = jobstage; } else { n->jobstage = 0; }
+      if (savepath) { pstrcpy(n->savepath, savepath); } else { pstrcpy(n->savepath, empty); }
+      if (datecommitted) { pstrcpy(n->datecommitted, datecommitted); } else { pstrcpy(n->datecommitted, empty); }
+      if (jobtagged) { n->jobtagged = jobtagged; } else { n->jobtagged = 0; }
       n->next = NULL;
 
       std::cout << "\t\t pushed: " << n->jobid << " with job " << n->job << " and " << n->jobstage << " " << n->savepath << " " << n->datecommitted << std::endl;
@@ -114,6 +118,7 @@ entry_shared pmem_queue::get(uint64_t ix)
       out.jobstage = n->jobstage;
       pstrcpy(out.savepath, n->savepath);
       pstrcpy(out.datecommitted, n->datecommitted);
+      out.jobtagged = n->jobtagged;
       
       std::cout << "GOT in get: "<< out.jobid << " and jobstage " << n->jobstage << " and job " << out.job << std::endl;
 
@@ -129,7 +134,8 @@ bool pmem_queue::set(
     char* job = NULL,
     int64_t jobstage = NULL,
     char* savepath = NULL,
-    char* datecommitted = NULL
+    char* datecommitted = NULL,
+    int64_t jobtagged = NULL
     )
 {
   uint64_t i = 0;
@@ -147,13 +153,14 @@ bool pmem_queue::set(
           if (job) {
             pstrcpy(n->job, job);
           }
-          if (jobstage) { n->jobstage = jobstage; }
+          if (jobstage != -1) { n->jobstage = jobstage; }
           if (savepath) {
             pstrcpy(n->savepath, savepath);
           }
           if (datecommitted) {
             pstrcpy(n->datecommitted, datecommitted);
           }
+          if (jobtagged != -1) { n->jobtagged = jobtagged; }
       });
       return true;
     }
@@ -162,7 +169,7 @@ bool pmem_queue::set(
   return false;
 }
 
-int64_t pmem_queue::count(void) const 
+int64_t pmem_queue::count(void)
 {
   int64_t out_n = 0;
 
@@ -194,6 +201,8 @@ int64_t pmem_queue::search_all(
     const char* jobpath_q=nullptr,
     const char* jobdatecommitted_oper=nullptr,
     const char* jobdatecommitted_q=nullptr,
+    const char* jobtagged_oper=nullptr,
+    int64_t jobtagged_q=-1,
     bool only_first=false)
 {
   // Will search n_el starting from 0 for the conditions and queries given
@@ -205,6 +214,8 @@ int64_t pmem_queue::search_all(
   auto n = head;
   int64_t i = 0;
   int64_t res;
+
+  std::cout << "job tagged q: " << n->jobtagged << jobtagged_oper << jobtagged_q << std::endl;
 
 
   // Spool forward to the correct item
@@ -225,6 +236,9 @@ int64_t pmem_queue::search_all(
     }
     if (jobdatecommitted_oper) {
       res *= query_str(n->datecommitted, jobdatecommitted_oper, jobdatecommitted_q);
+    }
+    if (jobtagged_oper) {
+      res *= query(n->jobtagged, jobtagged_oper, jobtagged_q);
     }
     
     // Check if we shall abort?

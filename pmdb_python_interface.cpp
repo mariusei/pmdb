@@ -51,28 +51,29 @@ bool init_pop(char* path, pool<pmem_queue> *pop)
   }
 }
 
-PyObject* init_pmdb(PyObject *self, PyObject* args)
+PyObject* init_pmdb(PyObject *self, PyObject* args, PyObject *kwords)
 {
   // Input/save file name for database
+  static char *kwlist[] = {"path_in", "n_max", NULL};
 
   std::cout << "init_pmdb" << std::endl;
 
   PyObject *path_in_py;
   char* path_in;
-  int64_t n_objects_in, n_objects_found;
+  //PyObject *n_objects_in_py = nullptr;
+  int64_t n_objects_in = 0;
+  int64_t n_objects_found;
   char* res_back;
-  PyObject *path_back_py;
+  PyObject *out;
 
   pool<pmem_queue> pop;
 
-  if (!PyArg_ParseTuple(args, "sl", 
+  PyArg_ParseTupleAndKeywords(args, kwords,
+                        "s|l:init_pmdb", kwlist,
                          &path_in,
                          &n_objects_in
-                         )) {
-    res_back = "STATUS_FAILED_INTERPRETATION";
-    path_back_py = Py_BuildValue("s", res_back);
-    return path_back_py;
-  }
+                         );
+
 
   std::cout << "Path in was: " << path_in << std::endl;
   std::cout << "Will now check if n elements in exist: " << n_objects_in << std::endl;
@@ -97,19 +98,22 @@ PyObject* init_pmdb(PyObject *self, PyObject* args)
 
   if (n_objects_found == 0) {
     res_back = "STATUS_EMPTY";
-  } else if (n_objects_found < n_objects_in) {
+  } else if (n_objects_found < n_objects_in || n_objects_in == 0) {
     res_back = "STATUS_NOT_FULL";
   } else {
     res_back = "STATUS_FULL";
   }
 
-  // NOW: return a string!
+  // NOW: return a list!
   //
-  path_back_py = Py_BuildValue("s", res_back);
+  //path_back_py = Py_BuildValue("s", res_back);
+  out = PyList_New(2);
+  PyList_SetItem(out, 0, PyLong_FromLong(n_objects_found));
+  PyList_SetItem(out, 1, Py_BuildValue("s", res_back));
 
   pop.close();
   
-  return path_back_py;
+  return out;
 
 error:
   pop.close();
@@ -117,18 +121,22 @@ error:
 
 }
 
-PyObject* insert(PyObject *self, PyObject *args)
+PyObject* insert(PyObject *self, PyObject *args, PyObject *kwords)
 {
-  /* Inserts a single element into the database.
-     Must be called sequentially until all n objects
-     have been inserted.
+  /* Inserts potentially a list of elements into the database
+     
   */ 
+
+  static char *kwlist[] = {"path_in", "n_max",
+    "jobid", "job", "jobstage", "jobpath", "jobdatecommitted",
+    "jobtagged", NULL};
 
   std::cout << "pmdb::insert" << std::endl;
 
   // Input
-  char* path_in, status_in;
-  int64_t n_max;
+  char* path_in;
+  int64_t n_max = -1;
+  int64_t n_objects_found;
   // Will be inserted in DB:
   //int64_t jobid;
   //char* job;
@@ -137,29 +145,52 @@ PyObject* insert(PyObject *self, PyObject *args)
   //char* jobdatecommitted;
   
   // Accessing the elements of the Python lists instead
-  PyObject *jobid, *job, *jobstage, *jobpath, *jobdatecommitted;
+  PyObject *jobid = nullptr;
+  PyObject *job = nullptr;
+  PyObject *jobstage = nullptr;
+  PyObject *jobpath = nullptr;
+  PyObject *jobdatecommitted = nullptr;
+  PyObject *jobtagged = nullptr;
 
   char* status_out;
   PyObject *status_out_py;
 
-  std::cout << "\t Initialized " << std::endl;
+  std::cerr << "\t Initialized " << std::endl;
 
-  if (!PyArg_ParseTuple(args, "sslOOOOO", 
+
+  PyArg_ParseTupleAndKeywords(args, kwords,
+                        "sl|OOOOOO:insert", kwlist,
                          &path_in,
-                         &status_in,
                          &n_max,
                          &jobid,
                          &job,
                          &jobstage,
                          &jobpath,
-                         &jobdatecommitted
-                         )) {
-    status_out = "STATUS_FAILED_INTERPRETATION";
+                         &jobdatecommitted,
+                         &jobtagged
+      );
+
+
+  std::cerr << "\t Parsed input tuples " << std::endl;
+  //std::cout << "\t Found jobid: " << PyLong_AsLong(jobid) << " and date: " << PyBytes_AsString(jobdatecommitted) << std::endl;
+
+  if (jobpath) {
+    std::cerr << "\t Is jobjobpath not null? " << jobpath << std::endl;
+  }
+  if (jobdatecommitted) {
+    std::cerr << "\t Is jobdatecommitted null? " << jobdatecommitted << std::endl;
+  }
+  if (jobtagged) {
+    std::cerr << "\t Is jobtagged null? " << jobtagged << std::endl;
   }
 
-  int64_t n_objects_found;
+  if (n_max < 0) {
+    return PyErr_Format(PyExc_AttributeError, "STATUS_FAILED_N_MAX_NOT_SPECIFIED");
+  } else if (!jobid && !job && !jobstage && !jobpath && !jobdatecommitted && !jobtagged) {
+    return PyErr_Format(PyExc_AttributeError, "STATUS_FAILED_SPECIFY_AT_LEAST_INPUT_FIELD");
+  }
 
-  std::cout << "\t Parsed input tuples " << std::endl;
+  std::cerr << "\t Connecting to pool " << std::endl;
 
   pool<pmem_queue> pop;
   if(init_pop(path_in, &pop)) {
@@ -168,7 +199,7 @@ PyObject* insert(PyObject *self, PyObject *args)
     status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
   }
 
-  std::cout << "\t Opened PM file " << std::endl;
+  std::cerr << "\t Opened PM file " << std::endl;
 
   if (status_out == "STATUS_EMPTY") {
     // The database should have been initialized
@@ -177,30 +208,87 @@ PyObject* insert(PyObject *self, PyObject *args)
     return status_out_py;
   }
 
-  std::cout << "\t Checked status of file " << std::endl;
+  std::cerr << "\t Checked status of file " << std::endl;
 
 
   auto q = pop.get_root();
 
-  std::cout << "\t Found root node " << std::endl;
+  std::cerr << "\t Found root node " << std::endl;
 
   n_objects_found = q->count();
 
-  std::cout << "\t Found n objects " << n_objects_found << std::endl;
+  std::cerr << "\t Found n objects " << n_objects_found << std::endl;
 
   // reset q
   q = pop.get_root();
+
+  int64_t jobid_i;
+  char* job_i;
+  int64_t jobstage_i;
+  char* jobpath_i;
+  char* jobdatecommitted_i;
+  int64_t jobtagged_i;
 
   // Insert all at once
   if (n_objects_found < n_max) {
     // All is set, push to list
     for (int i = 0; i < n_max; i++) {
+      //std::cerr << i << std::endl;
+      if (jobid) {
+        //std::cerr << "jobid" << std::endl;
+        jobid_i = PyLong_AsLong(PyList_GetItem(jobid, i));
+      } else {
+        //std::cerr << "no jobid" << std::endl;
+        jobid_i = i;
+      }
+      if (job) {
+        //std::cerr << "job" << std::endl;
+        job_i = PyBytes_AsString(PyList_GetItem(job, i));
+      } else {
+        //std::cerr << "no job" << std::endl;
+        jobid_i = NULL;
+      }
+      if (jobstage) {
+        //std::cerr << "jobstage" << std::endl;
+        jobstage_i = PyLong_AsLong(PyList_GetItem(jobstage, i));
+      } else {
+        //std::cerr << "no jobstage" << std::endl;
+        jobid_i = NULL;
+      }
+      if (jobpath) {
+        //std::cerr << "jobpath" << std::endl;
+        jobpath_i = PyBytes_AsString(PyList_GetItem(jobpath, i));
+      } else {
+        //std::cerr << "no jobpath" << std::endl;
+        jobid_i = NULL;
+      }
+      if (jobdatecommitted) {
+        //std::cerr << "datecommitted" << std::endl;
+        jobdatecommitted_i = PyBytes_AsString(PyList_GetItem(jobdatecommitted, i));
+      } else {
+        //std::cerr << "no datecommitted" << std::endl;
+        jobid_i = NULL;
+      }
+      if (jobtagged) {
+        //std::cerr << "datetagged" << std::endl;
+        jobtagged_i = PyLong_AsLong(PyList_GetItem(jobtagged, i));
+      } else {
+        //std::cerr << "no datetagged" << std::endl;
+        jobid_i = NULL;
+      }
+
       q->push(pop, 
-              PyLong_AsLong(PyList_GetItem(jobid, i)),
-              PyBytes_AsString(PyList_GetItem(job, i)),
-              PyLong_AsLong(PyList_GetItem(jobstage, i)),
-              PyBytes_AsString(PyList_GetItem(jobpath, i)),
-              PyBytes_AsString(PyList_GetItem(jobdatecommitted, i))
+              jobid_i,
+              job_i,
+              jobstage_i,
+              jobpath_i,
+              jobdatecommitted_i,
+              jobtagged_i
+             // PyLong_AsLong(PyList_GetItem(jobid, i)),
+             // PyBytes_AsString(PyList_GetItem(job, i)),
+             // PyLong_AsLong(PyList_GetItem(jobstage, i)),
+             // PyBytes_AsString(PyList_GetItem(jobpath, i)),
+             // PyBytes_AsString(PyList_GetItem(jobdatecommitted, i))
           );
     }
     status_out = "STATUS_INSERTED";
@@ -210,17 +298,22 @@ PyObject* insert(PyObject *self, PyObject *args)
 
   pop.close();
 
-  std::cout << "\t Pushed data to list " << std::endl;
+  std::cerr << "\t Pushed data to list " << std::endl;
 
   status_out_py = Py_BuildValue("s", status_out);
 
-  std::cout << "\t Done with code " << status_out << std::endl;
+  std::cerr << "\t Done with code " << status_out << std::endl;
+
+error:
+  // Cleanup
+  Py_XDECREF(jobid);
+  Py_XDECREF(job);
+  Py_XDECREF(jobstage);
+  Py_XDECREF(jobpath);
+  Py_XDECREF(jobdatecommitted);
+  Py_XDECREF(jobtagged);
 
   return status_out_py;
-  
-error:
-  pop.close();
-  return Py_BuildValue("");
 }
 
 PyObject* get(PyObject *self, PyObject *args)
@@ -232,20 +325,19 @@ PyObject* get(PyObject *self, PyObject *args)
   std::cout << "pmdb::get" << std::endl;
 
   // Input
-  char* path_in, status_in;
+  char* path_in;
   int64_t n_max, index;
 
   
   // These objects will be set and stored in a list
   PyObject *jobid, *job, *jobstage, *jobpath, *jobdatecommitted;
-  PyObject *outlist = PyList_New(5);
+  PyObject *outlist = PyList_New(6);
 
   char* status_out;
 
   // Parse inputs
-  if (!PyArg_ParseTuple(args, "ssll", 
+  if (!PyArg_ParseTuple(args, "sll", 
                          &path_in,
-                         &status_in,
                          &n_max,
                          &index
                          )) {
@@ -278,6 +370,7 @@ PyObject* get(PyObject *self, PyObject *args)
   PyList_SetItem(outlist, 2, PyLong_FromLong(data.jobstage));
   PyList_SetItem(outlist, 3, PyBytes_FromString(data.savepath));
   PyList_SetItem(outlist, 4, PyBytes_FromString(data.datecommitted));
+  PyList_SetItem(outlist, 5, PyLong_FromLong(data.jobtagged));
   pop.close();
 
   std::cout << "\t Converted data" << std::endl;
@@ -318,26 +411,28 @@ PyObject* set(PyObject *self, PyObject *args, PyObject *kwords)
   std::cout << "pmdb::set" << std::endl;
 
   // Input
-  char* path_in, status_in;
+  char* path_in;
   int64_t n_max, index;
 
   
   // Potential input objects, read in as keywords
-  PyObject *jobid = nullptr; // this one must be set
-  PyObject *job = nullptr;
-  PyObject *jobstage = nullptr;
-  PyObject *jobpath = nullptr;
-  PyObject *jobdatecommitted = nullptr;
+  //PyObject *jobid = nullptr; // this one must be set
+  //PyObject *job = nullptr;
+  //PyObject *jobstage = nullptr;
+  //PyObject *jobpath = nullptr;
+  //PyObject *jobdatecommitted = nullptr;
+  //PyObject *jobtagged = nullptr;
 
-  static char *kwlist[] = {"path_in", "status_in", "n_max",
-    "jobid", "job", "jobstage", "jobpath", "jobdatecommitted", NULL};
+  static char *kwlist[] = {"path_in", "n_max",
+    "jobid", "job", "jobstage", "jobpath", "jobdatecommitted", "jobtagged", NULL};
 
   // Will be parsed into these:
-  int64_t jobid_loc;
-  char* job_loc;
-  int64_t jobstage_loc;
-  char* jobpath_loc;
-  char* jobdatecommitted_loc;
+  int64_t jobid_loc = -1;
+  char* job_loc = nullptr;
+  int64_t jobstage_loc = -1;
+  char* jobpath_loc = nullptr;
+  char* jobdatecommitted_loc = nullptr;
+  int64_t jobtagged_loc = -1;
 
   char* status_out;
   PyObject *status_out_py;
@@ -345,25 +440,26 @@ PyObject* set(PyObject *self, PyObject *args, PyObject *kwords)
   std::cout << "\t Initialized " << std::endl;
 
   PyArg_ParseTupleAndKeywords(args, kwords,
-                        "sslO|OOOO:set", kwlist,
+                        "sll|ylyyl:set", kwlist,
                          &path_in,
-                         &status_in,
                          &n_max,
-                         &jobid,
-                         &job,
-                         &jobstage,
-                         &jobpath,
-                         &jobdatecommitted
+                         &jobid_loc,
+                         &job_loc,
+                         &jobstage_loc,
+                         &jobpath_loc,
+                         &jobdatecommitted_loc,
+                         &jobtagged_loc
                         );
 
   // Exit if we failed:
-  if (!jobid) {
+  if (jobid_loc < 0) {
     status_out = "STATUS_FAILED_SPECIFIY_JOBID";
     return PyErr_Format(PyExc_AttributeError, status_out);
-  } else if (!job && !jobstage && !jobpath && !jobdatecommitted) {
+  } else if (!job_loc && !jobstage_loc && !jobpath_loc && !jobdatecommitted_loc) {
     status_out = "STATUS_FAILED_SPECIFY_ONE_OR_MORE_FIELDS";
     return PyErr_Format(PyExc_ValueError, status_out);
-  } else if (PyLong_AsLong(jobid) > n_max) {
+  //} else if (PyLong_AsLong(jobid) > n_max) {
+  } else if (jobid_loc > n_max) {
     status_out == "STATUS_INDEX_OUT_OF_BOUNDS";
     return PyErr_Format(PyExc_IndexError, status_out);
   }
@@ -382,22 +478,25 @@ PyObject* set(PyObject *self, PyObject *args, PyObject *kwords)
   auto q = pop.get_root();
 
   // Set the entries of the index that are not null
-  jobid_loc = PyLong_AsLong(jobid);
-  if (job) { job_loc = PyBytes_AsString(job); } else { job_loc = NULL; }
-  if (jobstage) { jobstage_loc = PyLong_AsLong(jobstage); } else { jobstage_loc = NULL; }
-  if (jobpath) { jobpath_loc = PyBytes_AsString(jobpath); } else { jobpath_loc = NULL; }
-  if (jobdatecommitted) {
-    jobdatecommitted_loc = PyBytes_AsString(jobdatecommitted);
-  } else {
-    jobdatecommitted_loc = NULL;
-  }
+  //jobid_loc = PyLong_AsLong(jobid);
+  //if (job) { job_loc = PyBytes_AsString(job); } else { job_loc = NULL; }
+  //if (jobstage) { jobstage_loc = PyLong_AsLong(jobstage); } else { jobstage_loc = NULL; }
+  //if (jobpath) { jobpath_loc = PyBytes_AsString(jobpath); } else { jobpath_loc = NULL; }
+  //if (jobdatecommitted) {
+  //  jobdatecommitted_loc = PyBytes_AsString(jobdatecommitted);
+  //} else {
+  //  jobdatecommitted_loc = NULL;
+  //}
+  //if (jobtagged) { jobtagged_loc = PyLong_AsLong(jobtagged); } else { jobtagged = NULL; }
 
   if (!q->set(pop,
         jobid_loc,
         job_loc,
         jobstage_loc,
         jobpath_loc,
-        jobdatecommitted_loc)) {
+        jobdatecommitted_loc,
+        jobtagged_loc
+        )) {
     pop.close();
     status_out = "STATUS_FAILED_SETTING_VALUES";
     return PyErr_Format(PyExc_AttributeError, status_out);
@@ -422,7 +521,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
   std::cout << "pmdb::search" << std::endl;
 
   // Input
-  char* path_in, status_in;
+  char* path_in;
   
   // Potential search objects, read in as keywords
   PyObject *jobid = nullptr;
@@ -430,12 +529,14 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
   PyObject *jobstage = nullptr;
   PyObject *jobpath = nullptr;
   PyObject *jobdatecommitted = nullptr;
+  PyObject *jobtagged = nullptr;
 
   static char *kwlist[] = {"path_in", "n_max",
-    "jobid", "job", "jobstage", "jobpath", "jobdatecommitted", "only_first", NULL};
+    "jobid", "job", "jobstage", "jobpath",
+    "jobdatecommitted", "jobtagged", "only_first", NULL};
 
   // Will be parsed into these:
-  int64_t n_max = NULL;
+  int64_t n_max = -1;
   int64_t jobid_loc;
   char* job_loc;
   int64_t jobstage_loc;
@@ -452,7 +553,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
   std::cout << "\t Initialized " << std::endl;
 
   PyArg_ParseTupleAndKeywords(args, kwords,
-                        "sl|OOOOOp:search", kwlist,
+                        "sl|OOOOOOp:search", kwlist,
                          &path_in,
                          &n_max,
                          &jobid,
@@ -460,17 +561,19 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
                          &jobstage,
                          &jobpath,
                          &jobdatecommitted,
+                         &jobtagged,
                          &only_first
                         );
+  std::cout<< " \t Path in is: " << path_in << " ok" <<std::endl;
 
   // Exit if we failed:
   if (!path_in) {
     status_out = "STATUS_FAILED_SPECIFY_PATH_IN";
     return PyErr_Format(PyExc_ValueError, status_out);
-  } else if (!n_max) {
+  } else if (n_max < 0) {
     status_out = "STATUS_FAILED_SPECIFY_N_MAX";
     return PyErr_Format(PyExc_ValueError, status_out);
-  } else if (!jobid && !job && !jobstage && !jobpath && !jobdatecommitted) {
+  } else if (!jobid && !job && !jobstage && !jobpath && !jobdatecommitted && !jobtagged) {
     status_out = "STATUS_FAILED_SPECIFY_ONE_OR_MORE_FIELDS";
     return PyErr_Format(PyExc_ValueError, status_out);
   } 
@@ -486,6 +589,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
   char* oper_jobstage = nullptr;
   char* oper_jobpath = nullptr;
   char* oper_datecommitted = nullptr;
+  char* oper_jobtagged = nullptr;
 
   
   int64_t jobid_q = -1;
@@ -493,6 +597,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
   int64_t jobstage_q = -1;
   char* jobpath_q = nullptr;
   char* datecommitted_q = nullptr;
+  int64_t jobtagged_q = -1;
 
   if (jobid) {
     oper_jobid = new char[8];
@@ -513,6 +618,10 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
   if (jobdatecommitted) {
     oper_datecommitted = new char[8];
     PyArg_ParseTuple(jobdatecommitted, "ss", &oper_datecommitted, &datecommitted_q);
+  }
+  if (jobtagged) {
+    oper_jobtagged = new char[8];
+    PyArg_ParseTuple(jobtagged, "sl", &oper_jobtagged, &jobtagged_q);
   }
 
   //std::cout << "Found operator of jobid: " << oper_jobid << std::endl;
@@ -545,6 +654,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
       oper_jobstage, jobstage_q,
       oper_jobpath, jobpath_q,
       oper_datecommitted, datecommitted_q,
+      oper_jobtagged, jobtagged_q,
       only_first);
 
   pop.close();
@@ -594,13 +704,64 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
 
 }
 
+PyObject* count(PyObject *self, PyObject *args, PyObject *kwords)
+{
+  /* counts number of jobs
+   */
+
+  std::cout << "pmdb::count" << std::endl;
+
+  // Input
+  char* path_in;
+  char* status_out;
+  int64_t n_el;
+  PyObject *out;
+  PyObject *n_el_py;
+  
+  PyArg_ParseTuple(args, 
+                        "s:count",
+                         &path_in
+                        );
+
+  // Exit if we failed:
+  if (!path_in) {
+    return PyErr_Format(PyExc_AttributeError, "STATUS_FAILED_PATH_NOT_SPECIFIED");
+  }
+
+  // Else, count
+  //
+  // Connect to persistent memory
+  pool<pmem_queue> pop;
+  if(init_pop(path_in, &pop)) {
+    status_out = "STATUS_EMPTY"; 
+  } else {
+    status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
+  }
+
+  auto q = pop.get_root();
+
+  n_el = q->count();
+
+  std::cout << "COUNTED " << n_el << " elements!" << std::endl;
+
+  pop.close();
+  out = PyList_New(1);
+  n_el_py = PyLong_FromLong(n_el);
+  PyList_SetItem(out, 0, n_el_py );
+
+  return out;
+}
+
+
+
 
 static PyMethodDef pmdb_methods[] = {
-    { "init_pmdb", (PyCFunction)init_pmdb, METH_VARARGS, nullptr },
-    { "insert", (PyCFunction)insert, METH_VARARGS, nullptr },
+    { "init_pmdb", (PyCFunction)init_pmdb, METH_VARARGS|METH_KEYWORDS, nullptr },
+    { "insert", (PyCFunction)insert, METH_VARARGS|METH_KEYWORDS, nullptr },
     { "get", (PyCFunction)get, METH_VARARGS, nullptr },
     { "set", (PyCFunction)set, METH_VARARGS|METH_KEYWORDS, nullptr },
     { "search", (PyCFunction)search, METH_VARARGS|METH_KEYWORDS, nullptr },
+    { "count", (PyCFunction)count, METH_VARARGS, nullptr },
 
     // Terminate the array with an object containing nulls.
     { nullptr, nullptr, 0, nullptr }
