@@ -25,18 +25,23 @@ The `pmem_queue` by Rudoff is extended and has the following functions:
 
 ## Python extension
 
-The Python extension can be made either via `python setup.py build_ext --inplace` for a version residing in the same directory only, or built and installed to the system with `pip install .`.
+The Python extension can be built either via `python3.6 setup.py build_ext --inplace` for a version that will reside only source directory, or built and installed to the system with `pip install .`.
 
 
 The following functions are available through `import pmdb`:
 
- - `init_pmdb(path_to_pmem_file, n_elements)` -- initializes a persistent database at the given path,
- - `insert(path_to_pmem_file, status, n_elements, job_id, job, jobstage, jobpath, jobdatecommitted)` -- receives the properties as list entries that are batch added to the persistent database,
- - `get(path_to_pmem_file, status, n_elements, index)` -- retrieves a list holding the contents of the entry at `index`,
- - `set(path_to_pmem_file, status, n_elements, jobid, job=None, jobstage=None, jobpath=None, jobdatecomitted=None)` -- sets the non-None fields to `jobid` (the index),
- - `search(path, n_elements, jobid=(,), job=(,), jobstage=(,), jobpath=(,), jobdatecommitted=(,), only_first=False)` -- returns list of indices where the non-zero criteria, specified as `(operator, value)` are satisfied.
-     - The `operator` can be `==`, `>=`, `>`, `<=`, `<` and `!=` for numeric fields (jobid, jobstage), and `==` or `!=` for character fields (`job`, `jobpath` or `jobdatecommitted`).
-    - `only_first=False` means that a full search will be done on all elements. With this flag set to `True`, the first index will be returned in the output list only.
+ - `init_pmdb(path_to_pmem_file, n_elements)`
+    - initializes a persistent database at the given path,
+ - `insert(path_to_pmem_file, status, n_elements, job_id, job, jobstage, jobpath, jobdatecommitted)`
+    - receives the properties as list entries that are batch added to the persistent database,
+ - `get(path_to_pmem_file, status, n_elements, index)` 
+    - retrieves a list holding the contents of the entry at `index`,
+ - `set(path_to_pmem_file, status, n_elements, jobid, job=None, jobstage=None, jobpath=None, jobdatecomitted=None)` 
+    - sets the non-None fields to `jobid` (the index),
+ - `search(path, n_elements, jobid=(,), job=(,), jobstage=(,), jobpath=(,), jobdatecommitted=(,), only_first=False)`
+    - returns list of indices where the non-zero criteria, specified as `(operator, value)` are satisfied.
+      - The `operator` can be `==`, `>=`, `>`, `<=`, `<` and `!=` for numeric fields (jobid, jobstage), and `==` or `!=` for character fields (`job`, `jobpath` or `jobdatecommitted`).
+      - `only_first=False` means that a full search will be done on all elements. With this flag set to `True`, the first index will be returned in the output list only.
 
 ## Requirements
 
