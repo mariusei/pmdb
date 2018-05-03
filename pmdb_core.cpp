@@ -65,6 +65,12 @@ using pmem::obj::transaction;
 
 
 
+/********************************************
+ *
+ * PMEM_QUEUE::PUSH
+ * pusher
+ *
+ *******************************************/
 void pmem_queue::push(
     pool_base &pop,
     int64_t jobid = NULL,
@@ -89,7 +95,7 @@ void pmem_queue::push(
       if (jobtagged) { n->jobtagged = jobtagged; } else { n->jobtagged = 0; }
       n->next = NULL;
 
-      std::cout << "\t\t pushed: " << n->jobid << " with job " << n->job << " and " << n->jobstage << " " << n->savepath << " " << n->datecommitted << std::endl;
+      //std::cout << "\t\t pushed: " << n->jobid << " with job " << n->job << " and " << n->jobstage << " " << n->savepath << " " << n->datecommitted << std::endl;
 
       if (head == NULL) {
         head = tail = n;
@@ -102,6 +108,12 @@ void pmem_queue::push(
 
 }
 
+/********************************************
+ *
+ * PMEM_QUEUE::GET
+ * getter
+ *
+ *******************************************/
 entry_shared pmem_queue::get(uint64_t ix)
 {
   uint64_t i = 0;
@@ -120,7 +132,7 @@ entry_shared pmem_queue::get(uint64_t ix)
       pstrcpy(out.datecommitted, n->datecommitted);
       out.jobtagged = n->jobtagged;
       
-      std::cout << "GOT in get: "<< out.jobid << " and jobstage " << n->jobstage << " and job " << out.job << std::endl;
+      //std::cout << "GOT in get: "<< out.jobid << " and jobstage " << n->jobstage << " and job " << out.job << std::endl;
 
       return out;
     }
@@ -128,39 +140,54 @@ entry_shared pmem_queue::get(uint64_t ix)
     } 
 }
 
+/********************************************
+ *
+ * PMEM_QUEUE::SET
+ * setter
+ *
+ *******************************************/
 bool pmem_queue::set(
     pool_base &pop,
     int64_t jobid,
     char* job = NULL,
-    int64_t jobstage = NULL,
+    int64_t jobstage = -1,
     char* savepath = NULL,
     char* datecommitted = NULL,
-    int64_t jobtagged = NULL
+    int64_t jobtagged = -1 
     )
 {
   uint64_t i = 0;
   uint64_t j = 0;
   auto n = head;
 
-  //std::cout << "IN SET" << std::endl;
+  std::cerr << "IN SET FOR JOBID " << jobid << std::endl;
 
   // Spool forward to the correct item
   for (n; n != NULL; n = n->next) {
-    //std::cout << i << std::endl;
+    std::cerr << i << std::endl;
     if (i == jobid) { 
-      //std::cout << "will replace at " << n->jobid << " with jobstage " << jobstage << std::endl;
+      //std::cerr << "will replace at " << n->jobid << " with jobstage " << jobstage << std::endl;
       transaction::exec_tx(pop, [&] {
           if (job) {
+          std::cerr << "JOB" << std::endl;
             pstrcpy(n->job, job);
           }
-          if (jobstage != -1) { n->jobstage = jobstage; }
+          if (jobstage != -1) {
+            std::cerr << "JOBSTAGE" << std::endl;
+            n->jobstage = jobstage; 
+          }
           if (savepath) {
+            std::cerr << "SAVEPATH" << std::endl;
             pstrcpy(n->savepath, savepath);
           }
           if (datecommitted) {
+            std::cerr << "DATECOMITTED" << std::endl;
             pstrcpy(n->datecommitted, datecommitted);
           }
-          if (jobtagged != -1) { n->jobtagged = jobtagged; }
+          if (jobtagged != -1) {
+            std::cerr << "JOBTAGGED" << std::endl;
+            n->jobtagged = jobtagged; 
+          }
       });
       return true;
     }
@@ -180,6 +207,12 @@ int64_t pmem_queue::count(void)
 }
 
 
+/********************************************
+ *
+ * PMEM_QUEUE::SHOW
+ * showmaker
+ *
+ *******************************************/
 void pmem_queue::show(void) const
 {
   for (auto n = head; n != nullptr; n = n->next) {
@@ -210,12 +243,12 @@ int64_t pmem_queue::search_all(
   //
   // If only_first is true, will abort at first chance and return the index
 
-  //std::cout << "IN SET" << std::endl;
+  std::cout << "IN SEARCH" << std::endl;
   auto n = head;
   int64_t i = 0;
   int64_t res;
 
-  std::cout << "job tagged q: " << n->jobtagged << jobtagged_oper << jobtagged_q << std::endl;
+  //std::cout << "job tagged q: " << n->jobtagged << jobtagged_oper << jobtagged_q << std::endl;
 
 
   // Spool forward to the correct item
