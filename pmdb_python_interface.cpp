@@ -61,6 +61,7 @@ bool init_pop(char* path, pool<pmem_queue> *pop)
 /********************************************
  *
  *  INIT_PMDB
+ *  dbinitializer
  *
  *******************************************/
 PyObject* init_pmdb(PyObject *self, PyObject* args, PyObject *kwords)
@@ -237,6 +238,7 @@ PyObject* insert(PyObject *self, PyObject *args, PyObject *kwords)
   n_objects_found = q->count();
 
   std::cerr << "\t Found n objects " << n_objects_found << std::endl;
+  std::cerr << "\t Will add until " << n_max << std::endl;
 
   // reset q
   q = pop.get_root();
@@ -251,7 +253,11 @@ PyObject* insert(PyObject *self, PyObject *args, PyObject *kwords)
   // Insert all at once
   if (n_objects_found < n_max) {
     // All is set, push to list
-    for (int i = 0; i < n_max; i++) {
+    std::cerr << "\t Pushing jobs..." << std::endl;
+    for (int i = 0; i < n_max-n_objects_found; i++) {
+      //if (i%(n_max/100) == 0) {
+      //  std::cerr << i << std::endl;
+      //}
       //std::cerr << i << std::endl;
       if (jobid) {
         //std::cerr << "jobid" << std::endl;
@@ -263,6 +269,7 @@ PyObject* insert(PyObject *self, PyObject *args, PyObject *kwords)
       if (job) {
         //std::cerr << "job" << std::endl;
         job_i = PyBytes_AsString(PyList_GetItem(job, i));
+        //std::cerr << "job ok" << std::endl;
       } else {
         //std::cerr << "no job" << std::endl;
         jobid_i = NULL;
@@ -270,6 +277,7 @@ PyObject* insert(PyObject *self, PyObject *args, PyObject *kwords)
       if (jobstage) {
         //std::cerr << "jobstage" << std::endl;
         jobstage_i = PyLong_AsLong(PyList_GetItem(jobstage, i));
+        //std::cerr << "jobstage ok" << std::endl;
       } else {
         //std::cerr << "no jobstage" << std::endl;
         jobid_i = NULL;
@@ -295,6 +303,8 @@ PyObject* insert(PyObject *self, PyObject *args, PyObject *kwords)
         //std::cerr << "no datetagged" << std::endl;
         jobid_i = NULL;
       }
+
+      //std::cerr << "\t Parsed data, sending to pmdb..." << std::endl;
 
       q->push(pop, 
               jobid_i,

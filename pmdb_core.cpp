@@ -95,7 +95,7 @@ void pmem_queue::push(
       if (jobtagged) { n->jobtagged = jobtagged; } else { n->jobtagged = 0; }
       n->next = NULL;
 
-      //std::cout << "\t\t pushed: " << n->jobid << " with job " << n->job << " and " << n->jobstage << " " << n->savepath << " " << n->datecommitted << std::endl;
+      //std::cerr << "\t\t pushed: " << n->jobid << " with job " << n->job << " and " << n->jobstage << " " << n->savepath << " " << n->datecommitted << std::endl;
 
       if (head == NULL) {
         head = tail = n;
