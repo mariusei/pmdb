@@ -164,28 +164,28 @@ bool pmem_queue::set(
 
   // Spool forward to the correct item
   for (n; n != NULL; n = n->next) {
-    std::cerr << i << std::endl;
+    //std::cerr << i << std::endl;
     if (i == jobid) { 
       //std::cerr << "will replace at " << n->jobid << " with jobstage " << jobstage << std::endl;
       transaction::exec_tx(pop, [&] {
           if (job) {
-          std::cerr << "JOB" << std::endl;
+          //std::cerr << "JOB" << std::endl;
             pstrcpy(n->job, job);
           }
           if (jobstage != -1) {
-            std::cerr << "JOBSTAGE" << std::endl;
+            //std::cerr << "JOBSTAGE" << std::endl;
             n->jobstage = jobstage; 
           }
           if (savepath) {
-            std::cerr << "SAVEPATH" << std::endl;
+            //std::cerr << "SAVEPATH" << std::endl;
             pstrcpy(n->savepath, savepath);
           }
           if (datecommitted) {
-            std::cerr << "DATECOMITTED" << std::endl;
+            //std::cerr << "DATECOMITTED" << std::endl;
             pstrcpy(n->datecommitted, datecommitted);
           }
           if (jobtagged != -1) {
-            std::cerr << "JOBTAGGED" << std::endl;
+            //std::cerr << "JOBTAGGED" << std::endl;
             n->jobtagged = jobtagged; 
           }
       });
@@ -221,6 +221,12 @@ void pmem_queue::show(void) const
   return;
 }
 
+/********************************************
+ *
+ * PMEM_QUEUE::SEARCH_ALL
+ * searcher
+ *
+ *******************************************/
 int64_t pmem_queue::search_all(
     int64_t* out_array,
     int64_t n_el,

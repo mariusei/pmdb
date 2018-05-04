@@ -50,7 +50,7 @@ bool init_pop(char* path, pool<pmem_queue> *pop)
     std::cerr << "File out not found, creating it... " << path << std::endl;
     pop[0] = pool<pmem_queue>::create(
         //path, "queue", PMEMOBJ_MIN_POOL, CREATE_MODE_RW);
-        path, "queue", 16*1024*1024, CREATE_MODE_RW);
+        path, "queue", 5*1024*1024*1024, CREATE_MODE_RW);
     return true;
   } else {
       pop[0] = pool<pmem_queue>::open(path, "queue");
@@ -511,17 +511,17 @@ PyObject* set(PyObject *self, PyObject *args, PyObject *kwords)
     status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
   }
 
-  std::cerr << "\t Opened PM file " << std::endl;
+  //std::cerr << "\t Opened PM file " << std::endl;
 
   // reset q
   auto q = pop.get_root();
 
-  std::cerr << "\t GOT ROOT" << std::endl;
+  //std::cerr << "\t GOT ROOT" << std::endl;
 
   // Set the entries of the index that are not null
   //jobid_loc = PyLong_AsLong(jobid);
   if (job != Py_None) { 
-    std::cerr << "\t job" << std::endl;
+    //std::cerr << "\t job" << std::endl;
     job_loc = PyBytes_AsString(job);
   } else { 
     job_loc = NULL; 
@@ -533,13 +533,13 @@ PyObject* set(PyObject *self, PyObject *args, PyObject *kwords)
   //  jobstage_loc = NULL; 
   //}
   if (jobpath != Py_None) {
-    std::cerr << "\t jobpath" << std::endl;
+    //std::cerr << "\t jobpath" << std::endl;
     jobpath_loc = PyBytes_AsString(jobpath); 
   } else { 
     jobpath_loc = NULL; 
   }
   if (jobdatecommitted != Py_None) {
-    std::cerr << "\t jobdatecommitted" << std::endl;
+    //std::cerr << "\t jobdatecommitted" << std::endl;
     jobdatecommitted_loc = PyBytes_AsString(jobdatecommitted);
   } else {
     jobdatecommitted_loc = NULL;
@@ -619,7 +619,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
   PyObject *result_list;
   int64_t result_list_size, result_list_ix;
 
-  std::cerr << "\t Initialized " << std::endl;
+  //std::cerr << "\t Initialized " << std::endl;
 
   PyArg_ParseTupleAndKeywords(args, kwords,
                         "sl|OOOOOOp:search", kwlist,
@@ -633,7 +633,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
                          &jobtagged,
                          &only_first
                         );
-  std::cerr<< " \t Path in is: " << path_in << " ok" <<std::endl;
+  //std::cerr<< " \t Path in is: " << path_in << " ok" <<std::endl;
 
   // Exit if we failed:
   if (!path_in) {
@@ -693,7 +693,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
     PyArg_ParseTuple(jobtagged, "sl", &oper_jobtagged, &jobtagged_q);
   }
 
-  std::cerr << "Found operator of jobstage: " << oper_jobstage << std::endl;
+  //std::cerr << "Found operator of jobstage: " << oper_jobstage << std::endl;
 
   // Connect to persistent memory
   pool<pmem_queue> pop;
@@ -703,7 +703,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
     status_out = "STATUS_OPEN_POTENTIALLY_FILLED";
   }
 
-  std::cerr << "\t Opened PM file " << std::endl;
+  //std::cerr << "\t Opened PM file " << std::endl;
 
   // reset q
   auto q = pop.get_root();
@@ -717,7 +717,7 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
   // Will interface with the search function, each index has an entry
   query_is_true = new int64_t[n_max];
 
-  std::cerr << "\t generated: query is true array " << std::endl;
+  //std::cerr << "\t generated: query is true array " << std::endl;
 
   // The search function loops over the data and sets the values of query_is_true
 	q_status = q->search_all(
@@ -751,8 +751,8 @@ PyObject* search(PyObject *self, PyObject *args, PyObject *kwords)
     }
   }
 
-  std::cerr << "\t found size of result list " << result_list_size << std::endl;
-  std::cerr << " and nmax: " << n_max << " and q_status (job id) " << q_status << std::endl;
+  //std::cerr << "\t found size of result list " << result_list_size << std::endl;
+  //std::cerr << " and nmax: " << n_max << " and q_status (job id) " << q_status << std::endl;
   
   // Make it
   result_list = PyList_New(result_list_size);
