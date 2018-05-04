@@ -6,7 +6,7 @@ import json
 import datetime
 
 
-fout = 'tst3.pmem'
+fout = '/mnt/pmemdir/gaia/tst3.pmem'
 dateformat = '%Y-%m-%d %H:%M:%S'
 
 n_el = 102 #40
@@ -22,31 +22,31 @@ print("Finished with exit code: ", status1)
 
 # Try generating some data
 
-jids = [i for i in range(n_el)]
-#jobs = [pickle.dumps([i,3*i**2]) for i in range(n_el)]
-jobs = [json.dumps([i,3*i**2]).encode('utf8') for i in range(n_el)]
-jobstages = [i//3 for i in range(n_el)]
-jobpaths = ['out/test/files.npy'.encode('utf8') for i in range(n_el)]
-jobdatecommitteds = ['2018-04-10 12:30:20'.encode('utf8') for i in range(n_el)]
-jobtagged = [0 for _ in range(n_el)]
-
-print(jids)
-print(jobs)
-print(jobstages)
-print(jobpaths)
-print(jobdatecommitteds)
-print(jobtagged)
-
-# Now submit these
-
-status2 = pmdb.insert(fout, n_el,
-        jobid=jids,
-        job=jobs,
-        jobstage=jobstages,
-        #jobpath=jobpaths,
-        jobdatecommitted=jobdatecommitteds,
-        jobtagged=jobtagged
-        )
+#jids = [i for i in range(n_el)]
+##jobs = [pickle.dumps([i,3*i**2]) for i in range(n_el)]
+#jobs = [json.dumps([i,3*i**2]).encode('utf8') for i in range(n_el)]
+#jobstages = [i//3 for i in range(n_el)]
+#jobpaths = ['out/test/files.npy'.encode('utf8') for i in range(n_el)]
+#jobdatecommitteds = ['2018-04-10 12:30:20'.encode('utf8') for i in range(n_el)]
+#jobtagged = [0 for _ in range(n_el)]
+#
+#print(jids)
+#print(jobs)
+#print(jobstages)
+#print(jobpaths)
+#print(jobdatecommitteds)
+#print(jobtagged)
+#
+## Now submit these
+#
+#status2 = pmdb.insert(fout, n_el,
+#        jobid=jids,
+#        job=jobs,
+#        jobstage=jobstages,
+#        #jobpath=jobpaths,
+#        jobdatecommitted=jobdatecommitteds,
+#        jobtagged=jobtagged
+#        )
 
 print("######## TESTING GET #######")
 #

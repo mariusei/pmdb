@@ -50,7 +50,7 @@ bool init_pop(char* path, pool<pmem_queue> *pop)
     std::cerr << "File out not found, creating it... " << path << std::endl;
     pop[0] = pool<pmem_queue>::create(
         //path, "queue", PMEMOBJ_MIN_POOL, CREATE_MODE_RW);
-        path, "queue", 5*1024*1024*1024, CREATE_MODE_RW);
+        path, "queue", 3*1024*1024*1024, CREATE_MODE_RW);
     return true;
   } else {
       pop[0] = pool<pmem_queue>::open(path, "queue");
